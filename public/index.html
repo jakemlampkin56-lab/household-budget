@@ -135,6 +135,7 @@
   <header>
     <h1 class="brand">Home base</h1>
     <span id="syncDot" title="Live" style="width:8px;height:8px;border-radius:50%;background:#2E7D4F"></span>
+    <button id="membersBtn" class="linkbtn" type="button">Members</button>
     <button id="inviteBtn" class="linkbtn" type="button">Invite</button>
     <button id="signOut" class="linkbtn">Sign out</button>
   </header>
@@ -221,11 +222,11 @@
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <div class="muted" style="font-weight:600;margin-bottom:4px">Spending</div>
+          <div class="muted" style="font-weight:600;margin-bottom:4px">Spending (this month)</div>
           <div class="chips" id="expenseCatTotals"></div>
         </div>
         <div style="margin-bottom:12px">
-          <div class="muted" style="font-weight:600;margin-bottom:4px">Income</div>
+          <div class="muted" style="font-weight:600;margin-bottom:4px">Income (this month)</div>
           <div class="chips" id="incomeCatTotals"></div>
         </div>
         <div class="tablewrap">
@@ -425,6 +426,9 @@ function nextBillDue(bill) {
   return { due, daysUntil: Math.round((due - now) / 86400000), paidThisCycle };
 }
 
+// ---------- sync status ----------
+function setSyncOk(ok) { $('syncDot').style.background = ok ? '#2E7D4F' : '#C2760C'; $('syncDot').title = ok ? 'Live' : 'Sync problem'; }
+
 // ---------- toast / confetti ----------
 function toast(message, variant) {
   $('toastRoot').innerHTML = `<div class="toast ${variant === 'celebrate' ? 'celebrate' : ''}" style="animation:toastIn .25s cubic-bezier(.22,1,.36,1)">${esc(message)}</div>`;
@@ -456,7 +460,7 @@ function openModal(title, bodyHTML) {
   $('modalRoot').innerHTML = `
     <div class="modal-backdrop" id="modalBackdrop">
       <div class="modal" id="modalBox">
-        <div class="modal-head"><h3 class="serif">${esc(title)}</h3><button class="iconbtn" id="modalClose" type="button">${I.x}</button></div>
+        <div class="modal-head"><h3 class="serif">${esc(title)}</h3><button class="iconbtn" id="modalClose" type="button" aria-label="Close">${I.x}</button></div>
         ${bodyHTML}
       </div>
     </div>`;
@@ -470,9 +474,9 @@ const state = {
   spaceId: null, view: 'home',
   monthCursor: (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })(),
   gridScope: 'month', selectedDay: null, fabOpen: false,
-  budgetEntries: [], chores: [], bills: [], todos: [],
+  budgetEntries: [], chores: [], bills: [], todos: [], members: [],
   expenseCats: DEFAULT_EXPENSE_CATS.slice(), incomeCats: DEFAULT_INCOME_CATS.slice(), choreCats: DEFAULT_CHORE_CATS.slice(),
-  unsubEntries: null, unsubChores: null, unsubBills: null, unsubTodos: null, unsubSpace: null
+  unsubEntries: null, unsubChores: null, unsubBills: null, unsubTodos: null, unsubSpace: null, unsubMembers: null
 };
 let currentInviteId = null;
 
@@ -579,6 +583,30 @@ $('revokeInviteBtn').onclick = async () => {
   currentInviteId = null; $('inviteCard').hidden = true;
 };
 
+// ---------- members ----------
+$('membersBtn').onclick = () => openMembersModal();
+function openMembersModal() {
+  const rows = state.members.map((m) => {
+    const isMe = m.id === auth.currentUser.uid;
+    const joined = (m.joinedAt && m.joinedAt.toDate) ? m.joinedAt.toDate().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    return `<div class="row">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${esc(m.email.charAt(0).toUpperCase())}</div>
+      <div style="flex:1"><div style="font-size:13px">${esc(m.email)}${isMe ? ' (you)' : ''}</div><div class="muted">Joined ${esc(joined)}</div></div>
+      <button class="iconbtn remove-member" data-id="${esc(m.id)}" aria-label="${isMe ? 'Leave space' : 'Remove member'}">${I.trash}</button>
+    </div>`;
+  }).join('');
+  openModal('Members', `<div style="display:flex;flex-direction:column;gap:6px">${rows || '<div class="empty">No members found.</div>'}</div>`);
+  document.querySelectorAll('.remove-member').forEach((b) => {
+    b.onclick = async () => {
+      const isMe = b.dataset.id === auth.currentUser.uid;
+      if (!confirm(isMe ? 'Leave this space? You will need a new invite link to rejoin.' : 'Remove this member from the space?')) return;
+      await deleteDoc(doc(db, 'spaces', state.spaceId, 'members', b.dataset.id));
+      if (isMe) { closeModal(); await signOut(auth); }
+      else closeModal();
+    };
+  });
+}
+
 // ---------- fab ----------
 function renderFab() {
   const wrap = $('fabWrap');
@@ -602,12 +630,13 @@ function renderFab() {
 onAuthStateChanged(auth, async (user) => {
   $('login').hidden = !!user;
   $('app').hidden = !user;
-  [state.unsubEntries, state.unsubChores, state.unsubBills, state.unsubTodos, state.unsubSpace].forEach((u) => u && u());
+  [state.unsubEntries, state.unsubChores, state.unsubBills, state.unsubTodos, state.unsubSpace, state.unsubMembers].forEach((u) => u && u());
   $('fabWrap').hidden = true;
   if (user) {
     state.spaceId = await resolveSpace(user);
     if (inviteParams) history.replaceState(null, '', location.pathname);
     listenSpace();
+    listenMembers();
     listenEntries();
     listenChores();
     listenBills();
@@ -619,13 +648,24 @@ onAuthStateChanged(auth, async (user) => {
 
 function listenSpace() {
   state.unsubSpace = onSnapshot(doc(db, 'spaces', state.spaceId), (snap) => {
+    setSyncOk(true);
     const d = snap.data() || {};
     state.expenseCats = (d.budgetCategories && d.budgetCategories.expense) || DEFAULT_EXPENSE_CATS.slice();
     state.incomeCats = (d.budgetCategories && d.budgetCategories.income) || DEFAULT_INCOME_CATS.slice();
     state.choreCats = d.choreCategories || DEFAULT_CHORE_CATS.slice();
     if (state.view === 'budget') renderBudget();
-  });
+  }, (err) => { console.error(err); setSyncOk(false); });
 }
+function listenMembers() {
+  state.unsubMembers = onSnapshot(collection(db, 'spaces', state.spaceId, 'members'), (snap) => {
+    setSyncOk(true);
+    state.members = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
+    if (state.view === 'home') renderHome();
+    if (state.view === 'calendar') renderCalendar();
+  }, (err) => { console.error(err); setSyncOk(false); });
+}
+function memberInitial(uid) { const m = state.members.find((x) => x.id === uid); return m ? m.email.charAt(0).toUpperCase() : '?'; }
+function memberEmail(uid) { const m = state.members.find((x) => x.id === uid); return m ? m.email : 'Unknown'; }
 async function saveBudgetCats(expense, income) {
   await updateDoc(doc(db, 'spaces', state.spaceId), { budgetCategories: { expense, income } });
 }
@@ -637,10 +677,11 @@ async function saveChoreCats(list) {
 function listenEntries() {
   const q = query(collection(db, 'spaces', state.spaceId, 'budgetEntries'), orderBy('date', 'desc'));
   state.unsubEntries = onSnapshot(q, (snap) => {
+    setSyncOk(true);
     state.budgetEntries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (state.view === 'home') renderHome();
     if (state.view === 'budget') renderBudget();
-  });
+  }, (err) => { console.error(err); setSyncOk(false); });
 }
 function monthStats() {
   const now = new Date();
@@ -651,9 +692,11 @@ function monthStats() {
   return { spent, income };
 }
 function categoryTotals() {
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
   const totals = {};
   [...state.expenseCats, ...state.incomeCats].forEach((c) => (totals[c] = 0));
-  state.budgetEntries.forEach((e) => { totals[e.category] = (totals[e.category] || 0) + e.amountCents; });
+  state.budgetEntries.filter((e) => e.date && e.date.startsWith(prefix)).forEach((e) => { totals[e.category] = (totals[e.category] || 0) + e.amountCents; });
   return totals;
 }
 async function addEntry(entry) {
@@ -775,11 +818,31 @@ function openImportModal() {
   function renderPreview(rows) {
     if (!rows.length) { $('csvPreview').innerHTML = '<div class="muted">No usable rows found.</div>'; return; }
     $('csvPreview').innerHTML = `
-      <div class="tablewrap" style="max-height:260px;margin-bottom:12px">
-        <table><thead><tr><th>Date</th><th>Description</th><th>Cat</th><th>Type</th><th style="text-align:right">Amt</th></tr></thead>
-        <tbody>${rows.map((r, i) => `<tr><td>${esc(r.date)}</td><td>${esc(r.description)}</td><td>${esc(r.category)}</td><td>${esc(r.type)}</td><td style="text-align:right">${fmt(r.amountCents)}</td></tr>`).join('')}</tbody></table>
+      <div class="tablewrap" style="max-height:300px;margin-bottom:12px">
+        <table><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Category</th><th style="text-align:right">Amt</th></tr></thead>
+        <tbody>${rows.map((r, i) => `<tr>
+          <td>${esc(r.date)}</td>
+          <td>${esc(r.description)}</td>
+          <td><select class="csv-type" data-i="${i}" style="width:auto;padding:4px;font-size:12px">
+            <option value="expense" ${r.type === 'expense' ? 'selected' : ''}>Expense</option>
+            <option value="income" ${r.type === 'income' ? 'selected' : ''}>Income</option>
+          </select></td>
+          <td><select class="csv-cat" data-i="${i}" style="width:auto;padding:4px;font-size:12px">${(r.type === 'income' ? state.incomeCats : state.expenseCats).map((c) => `<option ${c === r.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></td>
+          <td style="text-align:right">${fmt(r.amountCents)}</td>
+        </tr>`).join('')}</tbody></table>
       </div>
       <button class="btn-primary block" id="csvCommit" type="button">Import ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}</button>`;
+    $('csvPreview').querySelectorAll('.csv-type').forEach((sel) => {
+      sel.onchange = () => {
+        const i = parseInt(sel.dataset.i, 10);
+        rows[i].type = sel.value;
+        rows[i].category = (sel.value === 'income' ? state.incomeCats : state.expenseCats)[0];
+        renderPreview(rows);
+      };
+    });
+    $('csvPreview').querySelectorAll('.csv-cat').forEach((sel) => {
+      sel.onchange = () => { rows[parseInt(sel.dataset.i, 10)].category = sel.value; };
+    });
     $('csvCommit').onclick = async () => {
       for (const r of rows) await addDoc(collection(db, 'spaces', state.spaceId, 'budgetEntries'), { ...r, source: 'csv-import', createdAt: serverTimestamp(), createdBy: auth.currentUser.uid });
       toast(`Imported ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}`);
@@ -791,10 +854,11 @@ function openImportModal() {
 // =================== CHORES ===================
 function listenChores() {
   state.unsubChores = onSnapshot(collection(db, 'spaces', state.spaceId, 'chores'), (snap) => {
+    setSyncOk(true);
     state.chores = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (state.view === 'home') renderHome();
     if (state.view === 'calendar') renderCalendar();
-  });
+  }, (err) => { console.error(err); setSyncOk(false); });
 }
 function isChoreDoneOn(chore, iso) { return chore.type === 'recurring' ? chore.completions.includes(iso) : !!chore.done; }
 async function toggleChoreDone(chore, iso) {
@@ -819,7 +883,7 @@ async function toggleChoreDone(chore, iso) {
 async function deleteChore(id) { await deleteDoc(doc(db, 'spaces', state.spaceId, 'chores', id)); }
 
 function openChoreModal(editing, defaultDate) {
-  const ms = { category: editing ? editing.category : state.choreCats[0], type: editing ? editing.type : 'recurring', days: editing ? (editing.days || []) : [] };
+  const ms = { category: editing ? editing.category : state.choreCats[0], type: editing ? editing.type : 'recurring', days: editing ? (editing.days || []) : [], assignedTo: editing ? (editing.assignedTo || null) : null };
   function body() {
     return `
     <div class="field"><label class="lbl">Name</label><input type="text" id="cName" value="${editing ? esc(editing.name) : ''}" placeholder="e.g. Vacuum living room"></div>
@@ -828,6 +892,13 @@ function openChoreModal(editing, defaultDate) {
       <div style="display:flex;gap:6px">
         <select id="cCat" style="flex:1">${state.choreCats.map((c) => `<option ${c === ms.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
         <button type="button" class="btn-secondary" id="cCatAdd">${I.plus}</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lbl">Assigned to</label>
+      <div class="chips" id="cAssigned">
+        <button type="button" class="chip assign" data-uid="" aria-pressed="${!ms.assignedTo}">Unassigned</button>
+        ${state.members.map((m) => `<button type="button" class="chip assign" data-uid="${esc(m.id)}" aria-pressed="${ms.assignedTo === m.id}">${esc(m.email.split('@')[0])}</button>`).join('')}
       </div>
     </div>
     <div class="field">
@@ -850,6 +921,7 @@ function openChoreModal(editing, defaultDate) {
       if (!state.choreCats.includes(name.trim())) { state.choreCats.push(name.trim()); await saveChoreCats(state.choreCats); }
       ms.category = name.trim(); rerender();
     };
+    document.querySelectorAll('.assign').forEach((b) => b.onclick = () => { ms.assignedTo = b.dataset.uid || null; rerender(); });
     if (ms.type === 'recurring') {
       document.querySelectorAll('.wd').forEach((b) => b.onclick = () => {
         const i = parseInt(b.dataset.i, 10);
@@ -864,9 +936,9 @@ function openChoreModal(editing, defaultDate) {
       let payload;
       if (ms.type === 'recurring') {
         if (!ms.days.length) { $('cErr').textContent = 'Pick at least one day.'; return; }
-        payload = { name, category, type: 'recurring', days: ms.days, completions: editing ? editing.completions : [] };
+        payload = { name, category, type: 'recurring', days: ms.days, completions: editing ? editing.completions : [], assignedTo: ms.assignedTo };
       } else {
-        payload = { name, category, type: 'oneoff', date: $('cDate').value || defaultDate, done: editing ? editing.done : false };
+        payload = { name, category, type: 'oneoff', date: $('cDate').value || defaultDate, done: editing ? editing.done : false, assignedTo: ms.assignedTo };
       }
       if (editing) { await updateDoc(doc(db, 'spaces', state.spaceId, 'chores', editing.id), payload); toast(`"${name}" updated`); }
       else { await addDoc(collection(db, 'spaces', state.spaceId, 'chores'), payload); toast(`"${name}" added to the calendar`); }
@@ -880,10 +952,11 @@ function openChoreModal(editing, defaultDate) {
 // =================== BILLS ===================
 function listenBills() {
   state.unsubBills = onSnapshot(collection(db, 'spaces', state.spaceId, 'bills'), (snap) => {
+    setSyncOk(true);
     state.bills = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (state.view === 'home') renderHome();
     if (state.view === 'calendar') renderCalendar();
-  });
+  }, (err) => { console.error(err); setSyncOk(false); });
 }
 function sortedBills() { return state.bills.map((b) => ({ ...b, ...nextBillDue(b) })).sort((a, b) => a.daysUntil - b.daysUntil); }
 async function markBillPaid(bill) {
@@ -901,7 +974,7 @@ async function markBillPaid(bill) {
 async function deleteBill(id) { await deleteDoc(doc(db, 'spaces', state.spaceId, 'bills', id)); }
 
 function openBillModal(editing, defaultDueDay) {
-  const ms = { category: editing ? editing.category : state.expenseCats[0], scheduleType: editing ? (editing.scheduleType || 'monthly') : 'monthly' };
+  const ms = { category: editing ? editing.category : state.expenseCats[0], scheduleType: editing ? (editing.scheduleType || 'monthly') : 'monthly', assignedTo: editing ? (editing.assignedTo || null) : null };
   function body() {
     return `
     <div class="field"><label class="lbl">Name</label><input type="text" id="bName" value="${editing ? esc(editing.name) : ''}" placeholder="e.g. Internet"></div>
@@ -909,6 +982,13 @@ function openBillModal(editing, defaultDueDay) {
     <div class="field">
       <label class="lbl">Category</label>
       <select id="bCat" style="width:100%">${state.expenseCats.map((c) => `<option ${c === ms.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+    </div>
+    <div class="field">
+      <label class="lbl">Assigned to</label>
+      <div class="chips" id="bAssigned">
+        <button type="button" class="chip bassign" data-uid="" aria-pressed="${!ms.assignedTo}">Unassigned</button>
+        ${state.members.map((m) => `<button type="button" class="chip bassign" data-uid="${esc(m.id)}" aria-pressed="${ms.assignedTo === m.id}">${esc(m.email.split('@')[0])}</button>`).join('')}
+      </div>
     </div>
     <div class="field">
       <label class="lbl">Schedule</label>
@@ -930,6 +1010,7 @@ function openBillModal(editing, defaultDueDay) {
     $('schMonthly').onclick = () => { ms.scheduleType = 'monthly'; rerender(); };
     $('schWeekly').onclick = () => { ms.scheduleType = 'weekly'; rerender(); };
     $('schOneoff').onclick = () => { ms.scheduleType = 'oneoff'; rerender(); };
+    document.querySelectorAll('.bassign').forEach((b) => b.onclick = () => { ms.assignedTo = b.dataset.uid || null; rerender(); });
     document.querySelectorAll('.wdbill').forEach((b) => b.onclick = () => { weeklyChoice = parseInt(b.dataset.i, 10); rerender(); });
     $('bSave').onclick = async () => {
       const name = $('bName').value.trim();
@@ -937,7 +1018,7 @@ function openBillModal(editing, defaultDueDay) {
       const category = $('bCat').value;
       if (!name) { $('bErr').textContent = 'Name the bill.'; return; }
       if (!(amountCents > 0)) { $('bErr').textContent = 'Enter an amount.'; return; }
-      let payload = { name, amountCents, category, scheduleType: ms.scheduleType };
+      let payload = { name, amountCents, category, scheduleType: ms.scheduleType, assignedTo: ms.assignedTo };
       if (ms.scheduleType === 'monthly') {
         const dueDay = parseInt($('bDueDay').value, 10);
         if (!(dueDay >= 1 && dueDay <= 31)) { $('bErr').textContent = 'Due day must be 1-31.'; return; }
@@ -959,7 +1040,11 @@ function openBillModal(editing, defaultDueDay) {
 // =================== TODOS ===================
 function listenTodos() {
   const q = query(collection(db, 'spaces', state.spaceId, 'todos'), orderBy('createdAt', 'desc'));
-  state.unsubTodos = onSnapshot(q, (snap) => { state.todos = snap.docs.map((d) => ({ id: d.id, ...d.data() })); if (state.view === 'home') renderHome(); });
+  state.unsubTodos = onSnapshot(q, (snap) => {
+    setSyncOk(true);
+    state.todos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (state.view === 'home') renderHome();
+  }, (err) => { console.error(err); setSyncOk(false); });
 }
 $('todoAddBtn').onclick = addTodoNow;
 $('todoInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodoNow(); });
@@ -998,6 +1083,7 @@ function renderHome() {
     return `<div class="row">
       <button class="check ${done ? 'done' : ''}" data-id="${esc(chore.id)}" data-iso="${esc(dateIso)}">${done ? I.check : ''}</button>
       <span style="flex:1;font-size:13px;${done ? 'text-decoration:line-through' : ''}">${esc(chore.name)}</span>
+      ${chore.assignedTo ? `<span class="badge muted" title="${esc(memberEmail(chore.assignedTo))}">${esc(memberInitial(chore.assignedTo))}</span>` : ''}
       <span style="font-size:11px;font-weight:600;color:${diff <= 0 ? 'var(--accent)' : 'var(--ink-soft)'}">${dueLabel(diff)}</span>
     </div>`;
   }).join('') : '<div class="empty">Nothing due today or in the next week.</div>';
@@ -1007,6 +1093,7 @@ function renderHome() {
   $('billsListHome').innerHTML = bills.length ? bills.map((b) => `
     <div class="row">
       <div style="flex:1;min-width:100px"><div style="font-size:13px;font-weight:500">${esc(b.name)}</div><div class="muted">${fmt(b.amountCents)} · ${esc(b.category)}</div></div>
+      ${b.assignedTo ? `<span class="badge muted" title="${esc(memberEmail(b.assignedTo))}">${esc(memberInitial(b.assignedTo))}</span>` : ''}
       <span class="badge ${!b.paidThisCycle && b.daysUntil <= 3 ? 'warn' : 'muted'}">${b.paidThisCycle ? 'Paid' : dueLabel(b.daysUntil)}</span>
       ${!b.paidThisCycle ? `<button class="btn-secondary pay-bill" data-id="${esc(b.id)}" style="padding:6px 10px;font-size:12px">Mark paid</button>` : ''}
       <button class="iconbtn edit-bill" data-id="${esc(b.id)}">${I.pencil}</button>
@@ -1097,6 +1184,7 @@ function openDayModal(iso) {
         return `<div class="row">
           <button class="check ${done ? 'done' : ''}" data-id="${esc(c.id)}">${done ? I.check : ''}</button>
           <div style="flex:1"><div style="font-size:14px;${done ? 'text-decoration:line-through' : ''}">${esc(c.name)}</div><div class="muted">${esc(c.category)} · ${c.type === 'recurring' ? 'weekly' : 'one-off'}</div></div>
+          ${c.assignedTo ? `<span class="badge muted" title="${esc(memberEmail(c.assignedTo))}">${esc(memberInitial(c.assignedTo))}</span>` : ''}
           ${streak >= 2 ? `<span class="badge" style="color:var(--accent);background:var(--accent-soft)">${streak} streak</span>` : ''}
           <button class="iconbtn edit-day-chore" data-id="${esc(c.id)}">${I.pencil}</button>
           <button class="iconbtn del-day-chore" data-id="${esc(c.id)}">${I.trash}</button>
@@ -1105,6 +1193,7 @@ function openDayModal(iso) {
       ${bills.length ? '<div class="muted" style="font-weight:600;margin-top:4px">Bills due</div>' : ''}
       ${bills.map((b) => { const { paidThisCycle } = nextBillDue(b); return `<div class="row">
           <div style="flex:1"><div style="font-size:14px">${esc(b.name)}</div><div class="muted">${fmt(b.amountCents)} · ${esc(b.category)}</div></div>
+          ${b.assignedTo ? `<span class="badge muted" title="${esc(memberEmail(b.assignedTo))}">${esc(memberInitial(b.assignedTo))}</span>` : ''}
           <span class="badge ${paidThisCycle ? 'muted' : 'warn'}">${paidThisCycle ? 'Paid' : 'Due'}</span>
         </div>`; }).join('')}
     </div>
