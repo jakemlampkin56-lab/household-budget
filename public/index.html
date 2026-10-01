@@ -3,70 +3,113 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Household</title>
+<title>Home base</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root { --ink:#1B1E1C; --mute:#5B615D; --line:#DADDD6; --bg:#F3F4F1; --card:#FFFFFF; --accent:#1F5F5B; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:14px 'IBM Plex Sans', system-ui, sans-serif; }
+  :root {
+    --paper:#F3F4F7; --paper-alt:#E7E9EE; --ink:#14161B; --ink-soft:#676D7A;
+    --accent:#0A7CFF; --accent-soft:#E3EFFF; --green:#16A34A; --green-soft:#E3F7EA;
+    --red:#E5484D; --red-soft:#FCE9E9; --warn:#C2760C; --warn-soft:#FBEEDA; --line:#E1E3E9;
+  }
+  * { box-sizing:border-box; }
   [hidden] { display:none !important; }
-  .mono { font-family:'IBM Plex Mono', monospace; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:14px/1.4 'Inter', system-ui, sans-serif; }
+  .serif { font-weight:700; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  button { font-family:inherit; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
+  button:not(:disabled):active { transform:scale(0.95); }
+  input, select { font-family:inherit; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes modalIn { from{opacity:0;transform:scale(.95) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  @keyframes toastIn { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
+  @keyframes toastOut { from{opacity:1;transform:translate(-50%,0)} to{opacity:0;transform:translate(-50%,10px)} }
+  @keyframes rowIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes checkPop { 0%{transform:scale(0)} 65%{transform:scale(1.3)} 100%{transform:scale(1)} }
+  @keyframes confettiFall { from{transform:translateY(0) rotate(0)} to{transform:translateY(100vh) rotate(360deg);opacity:0} }
+  @keyframes fabIn { from{opacity:0;transform:translateY(10px) scale(.8)} to{opacity:1;transform:translateY(0) scale(1)} }
+
   header { background:#fff; border-bottom:1px solid var(--line); padding:14px 16px; display:flex; align-items:center; gap:10px; }
-  header h1 { margin:0; font-size:17px; font-weight:600; flex-grow:1; }
-  .tabs { display:flex; gap:4px; padding:0 16px; background:#fff; border-bottom:1px solid var(--line); overflow-x:auto; }
-  .tab { padding:11px 12px; border:none; background:none; font:inherit; font-size:13px; font-weight:500; color:var(--mute); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; }
-  .tab[aria-current=true] { color:var(--ink); border-bottom-color:var(--accent); }
-  main { max-width:480px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+  header h1 { margin:0; font-size:20px; flex-grow:1; }
+  .linkbtn { background:none; border:none; color:var(--accent); font:inherit; font-weight:600; font-size:13px; padding:8px; }
+  main { max-width:560px; margin:0 auto; padding:16px 16px 90px; }
+  .tabs { display:flex; gap:4px; background:var(--paper-alt); padding:4px; border-radius:10px; margin-bottom:16px; }
+  .tab { flex:1; padding:9px 0; border-radius:7px; border:none; background:transparent; color:var(--ink-soft); font-size:13.5px; font-weight:600; }
+  .tab[aria-current=true] { background:#fff; color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,.1); }
   .view[hidden] { display:none; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; }
-  .pad { padding:14px; }
-  label.lbl, legend { font-size:13px; font-weight:500; padding:0; margin-bottom:6px; display:block; }
-  input[type=text], input[type=email], input[type=password], input[type=date], input[type=number] {
-    width:100%; padding:12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
-  fieldset { border:none; margin:0; padding:0; }
-  .stack { display:flex; flex-direction:column; gap:16px; }
-  .amt { text-align:center; font:500 38px 'IBM Plex Mono', monospace; border:none !important; background:transparent !important; }
-  .chips { display:flex; flex-wrap:wrap; gap:8px; }
-  .chip { padding:9px 14px; min-height:40px; border-radius:20px; border:1px solid var(--line); background:#fff; font:inherit; font-size:13px; cursor:pointer; }
-  .chip[aria-pressed=true] { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .seg { display:grid; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-  .seg button { padding:12px 4px; border:none; border-left:1px solid var(--line); background:#fff; font:inherit; cursor:pointer; }
-  .seg button:first-child { border-left:none; }
-  .seg button[aria-pressed=true] { background:var(--ink); color:#fff; font-weight:500; }
-  .btn { padding:14px; border:none; border-radius:8px; background:var(--accent); color:#fff; font:600 15px 'IBM Plex Sans', sans-serif; min-height:50px; cursor:pointer; width:100%; }
-  .btn:disabled { opacity:.6; }
-  .btn.sm { padding:9px 12px; min-height:36px; font-size:13px; width:auto; }
-  .linkbtn { background:none; border:none; color:var(--accent); font:inherit; font-weight:500; cursor:pointer; padding:8px; }
-  .hint { font-size:12px; color:var(--mute); margin:6px 0 0; }
-  .err { color:#8A3B1C; font-size:13px; margin:0; min-height:1em; }
-  .row { display:flex; align-items:center; gap:10px; padding:11px 14px; border-top:1px solid #EEF0EB; }
-  .row:first-child { border-top:none; }
-  .row .grow { flex-grow:1; min-width:0; }
-  .row .sub { font-size:12px; color:var(--mute); }
-  .who { padding:1px 6px; border-radius:4px; font-size:12px; font-weight:500; }
-  .who.J { background:#DCEBE8; color:#17504C; }
-  .who.P { background:#F6E4D2; color:#7A3F0E; }
-  .big { font-size:11px; padding:1px 5px; border-radius:4px; background:#E7E6F2; color:#3E3A6B; margin-left:6px; }
-  .del { background:none; border:none; color:var(--mute); cursor:pointer; padding:6px; font-size:16px; }
-  .settle { display:flex; flex-direction:column; gap:4px; }
-  .settle .n { font:500 24px 'IBM Plex Mono', monospace; }
-  .status { display:inline-block; padding:1px 7px; border-radius:4px; font-size:11px; font-weight:500; }
-  .status-paid { background:#DCEBE8; color:#17504C; }
-  .status-due { background:#F6E4D2; color:#7A3F0E; }
-  .status-overdue { background:#F4D7D0; color:#8A3B1C; }
-  .bar { height:6px; border-radius:3px; background:#EEF0EB; overflow:hidden; margin-top:6px; }
-  .bar-fill { height:100%; background:var(--accent); }
-  .bar-fill.over { background:#B0493A; }
-  .empty { padding:14px; color:var(--mute); font-size:13px; }
-  .strip { background:#F4D7D0; border:1px solid #E3B2A6; border-radius:10px; padding:12px 14px; }
-  .strip h3 { margin:0 0 6px; font-size:13px; color:#8A3B1C; }
-  .sectionhead { display:flex; align-items:center; justify-content:space-between; padding:14px 14px 8px; }
-  .sectionhead h2 { margin:0; font-size:15px; font-weight:600; }
-  .catrow { padding:11px 14px; border-top:1px solid #EEF0EB; }
-  .catrow:first-child { border-top:none; }
-  .catrow .top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .catrow input[type=text] { width:90px; text-align:right; padding:8px; }
+
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 1px 2px rgba(15,23,42,.04), 0 1px 8px rgba(15,23,42,.03); padding:16px; margin-bottom:14px; }
+  .card h2 { font-size:16px; margin:0 0 10px; }
+  .headrow { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .bar { height:8px; background:var(--paper-alt); border-radius:4px; overflow:hidden; }
+  .bar-fill { height:100%; background:var(--ink); border-radius:4px; transition:width .4s cubic-bezier(.22,1,.36,1); }
+  .bar.sm { height:5px; }
+  .muted { color:var(--ink-soft); font-size:12px; }
+  .empty { color:var(--ink-soft); font-size:13px; }
+  .row { display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--paper); border-radius:8px; margin-bottom:6px; animation:rowIn .25s ease; flex-wrap:wrap; }
+  .row:last-child { margin-bottom:0; }
+  .check { width:18px; height:18px; border-radius:5px; border:1.5px solid var(--line); background:transparent; display:flex; align-items:center; justify-content:center; flex-shrink:0; padding:0; }
+  .check.done { border-color:var(--ink); background:var(--ink); }
+  .check svg { animation:checkPop .3s ease; }
+  .badge { font-size:11px; font-weight:600; padding:3px 8px; border-radius:6px; flex-shrink:0; white-space:nowrap; }
+  .badge.warn { color:var(--warn); background:var(--warn-soft); }
+  .badge.muted { color:var(--ink-soft); background:var(--paper-alt); }
+  .iconbtn { background:none; border:none; color:var(--ink-soft); padding:4px; display:flex; }
+  .btn-primary, .btn-secondary { display:inline-flex; align-items:center; gap:6px; border-radius:8px; font-weight:600; font-size:13px; padding:9px 14px; border:none; }
+  .btn-primary { background:var(--ink); color:#fff; }
+  .btn-secondary { background:#fff; border:1px solid var(--line); color:var(--ink); }
+  .btn-primary.block, .btn-secondary.block { width:100%; justify-content:center; padding:13px; font-size:14px; }
+  input[type=text], input[type=number], input[type=date], input[type=file], select {
+    width:100%; padding:11px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  label.lbl { font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:5px; }
+  .chip { padding:6px 10px; border-radius:7px; border:1px solid var(--line); background:#fff; color:var(--ink); font-size:12px; }
+  .chip[aria-pressed=true] { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .chips { display:flex; gap:4px; flex-wrap:wrap; }
+  .catpill { background:var(--paper-alt); border-radius:8px; padding:6px 10px; font-size:12px; }
+
+  .stats2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .statcard { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .statcard .v { font-size:28px; font-weight:700; }
+  .statcard .l { font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .snapshot-row { display:flex; gap:20px; margin-bottom:10px; }
+  .snapshot-row .v { font-size:20px; font-weight:700; }
+  .snapshot-row .l { font-size:11px; color:var(--ink-soft); }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { position:sticky; top:0; background:var(--paper-alt); text-align:left; padding:8px 10px; font-size:11px; color:var(--ink-soft); }
+  td { padding:8px 10px; border-top:1px solid var(--line); }
+  .tablewrap { max-height:320px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
+
+  .caltoggle { display:flex; gap:6px; margin-bottom:14px; }
+  .calnav { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .calnav button { background:none; border:none; color:var(--ink); padding:6px; }
+  .calgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .calgrid .dow { text-align:center; font-size:11px; color:var(--ink-soft); font-weight:600; padding:2px 0; }
+  .daybtn { aspect-ratio:1; border:1px solid var(--line); border-radius:8px; background:var(--paper); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2px; position:relative; }
+  .daybtn.today { border:1.5px solid var(--accent); }
+  .daybtn.out { opacity:.3; background:transparent; }
+  .daybtn .dnum { font-size:13px; font-weight:400; }
+  .daybtn.today .dnum { font-weight:700; }
+  .banners { display:flex; flex-direction:column; gap:2px; margin-top:3px; width:80%; }
+  .banners span { height:4px; border-radius:2px; }
+
+  .modal-backdrop { position:fixed; inset:0; background:rgba(35,35,35,.35); z-index:60; display:flex; align-items:center; justify-content:center; padding:16px; animation:fadeIn .18s ease; }
+  .modal { background:#fff; border-radius:16px; padding:20px; width:min(440px,100%); max-height:85vh; overflow-y:auto; animation:modalIn .22s cubic-bezier(.22,1,.36,1); box-shadow:0 12px 40px rgba(15,23,42,.16); }
+  .modal h3 { margin:0; font-size:18px; }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .modal .field { margin-bottom:12px; }
+
+  .fab-wrap { position:fixed; bottom:20px; left:20px; display:flex; flex-direction:column-reverse; align-items:flex-start; gap:12px; z-index:30; }
+  .fab-main { width:50px; height:50px; border-radius:50%; background:var(--ink); color:#fff; border:none; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,.22); transition:transform .28s cubic-bezier(.34,1.56,.64,1); }
+  .fab-main.open { transform:rotate(45deg); }
+  .fab-action { width:44px; height:44px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,.18); animation:fabIn .22s cubic-bezier(.22,1,.36,1) backwards; }
+  .fab-backdrop { position:fixed; inset:0; background:rgba(20,22,27,.12); z-index:25; animation:fadeIn .18s ease; }
+
+  .toast { position:fixed; bottom:78px; left:50%; background:var(--ink); color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600; box-shadow:0 6px 20px rgba(0,0,0,.18); z-index:80; max-width:88vw; text-align:center; }
+  .toast.celebrate { background:var(--green); box-shadow:0 6px 20px rgba(22,163,74,.35); }
+  .confetti-piece { position:absolute; top:-20px; width:8px; height:14px; border-radius:2px; animation:confettiFall ease-in forwards; }
+
+  #login main { max-width:420px; }
 </style>
 </head>
 <body>
@@ -74,14 +117,14 @@
 <!-- Sign in -->
 <section id="login" hidden>
   <main>
-    <div class="card pad stack">
-      <h1 style="margin:0;font-size:20px">Household</h1>
-      <p id="inviteHint" class="hint" hidden>You've been invited to join a space. Sign in, or create an account to accept.</p>
-      <div><label class="lbl" for="email">Email</label><input id="email" type="email" autocomplete="username"></div>
-      <div><label class="lbl" for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"></div>
-      <p id="loginErr" class="err" role="alert"></p>
-      <button id="loginBtn" class="btn">Sign in</button>
-      <button id="toggleMode" class="linkbtn" type="button" hidden>Need an account? Create one</button>
+    <div class="card" style="margin-top:40px">
+      <h1 class="serif" style="font-size:20px;margin:0 0 14px">Home base</h1>
+      <p id="inviteHint" class="muted" hidden style="margin:0 0 12px">You've been invited to join a space. Sign in, or create an account to accept.</p>
+      <div class="field"><label class="lbl" for="email">Email</label><input id="email" type="email" autocomplete="username"></div>
+      <div class="field"><label class="lbl" for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"></div>
+      <p id="loginErr" class="muted" style="color:var(--red);min-height:1em" role="alert"></p>
+      <button id="loginBtn" class="btn-primary block">Sign in</button>
+      <div style="text-align:center;margin-top:8px"><button id="toggleMode" class="linkbtn" type="button" hidden>Need an account? Create one</button></div>
     </div>
   </main>
 </section>
@@ -89,168 +132,118 @@
 <!-- App -->
 <section id="app" hidden>
   <header>
-    <h1>Household</h1>
+    <h1 class="serif">Home base</h1>
     <span id="syncDot" title="Live" style="width:8px;height:8px;border-radius:50%;background:#2E7D4F"></span>
     <button id="inviteBtn" class="linkbtn" type="button">Invite</button>
     <button id="signOut" class="linkbtn">Sign out</button>
   </header>
-  <nav class="tabs" id="tabs">
-    <button class="tab" type="button" data-view="home">Home</button>
-    <button class="tab" type="button" data-view="expenses">Expenses</button>
-    <button class="tab" type="button" data-view="bills">Bills</button>
-    <button class="tab" type="button" data-view="chores">Chores</button>
-    <button class="tab" type="button" data-view="budget">Budget</button>
-  </nav>
   <main>
-    <section id="inviteCard" class="card pad stack" hidden>
-      <span style="font-size:12px;color:var(--mute)">Invite link &mdash; anyone with this link can join your space</span>
-      <div class="mono" id="inviteLinkText" style="word-break:break-all;font-size:13px"></div>
+    <section id="inviteCard" class="card" hidden>
+      <div class="muted" style="margin-bottom:8px">Invite link &mdash; anyone with this link can join your space</div>
+      <div id="inviteLinkText" style="word-break:break-all;font-size:13px;margin-bottom:10px"></div>
       <div style="display:flex;gap:8px">
         <button id="copyInviteBtn" class="linkbtn" type="button">Copy link</button>
-        <button id="revokeInviteBtn" class="linkbtn" type="button" style="color:#8A3B1C">Revoke</button>
+        <button id="revokeInviteBtn" class="linkbtn" type="button" style="color:var(--red)">Revoke</button>
       </div>
     </section>
 
+    <nav class="tabs" id="tabs">
+      <button class="tab" type="button" data-view="home">Home</button>
+      <button class="tab" type="button" data-view="calendar">Calendar</button>
+      <button class="tab" type="button" data-view="budget">Budget</button>
+    </nav>
+
     <!-- Home -->
-    <div id="view-home" class="view stack" hidden>
-      <div id="overdueStrip" class="strip" hidden>
-        <h3>Overdue</h3>
-        <div id="overdueList"></div>
+    <div id="view-home" class="view" hidden>
+      <div class="card">
+        <div class="headrow"><h2>This week's chores</h2><span id="weekProgressLabel" class="muted"></span></div>
+        <div class="bar"><div id="weekProgressBar" class="bar-fill" style="width:0%"></div></div>
+        <div id="weekProgressEmpty" class="muted" style="margin-top:8px"></div>
+        <div id="weekCategoryBars" style="display:flex;flex-direction:column;gap:6px;margin-top:12px"></div>
       </div>
-      <section class="card pad settle" aria-label="Settle up">
-        <span style="font-size:12px;color:var(--mute)">Settle up</span>
-        <span id="settleTextHome" style="font-size:13px">&nbsp;</span>
-        <span id="settleAmtHome" class="n">$0.00</span>
-      </section>
-      <section class="card" aria-label="This week">
-        <div class="sectionhead"><h2>This week</h2></div>
-        <div id="agendaList"></div>
-      </section>
-      <section class="card" aria-label="This month's plan">
-        <div class="sectionhead"><h2>This month</h2></div>
-        <div id="homeBudgetSummary" class="pad" style="padding-top:0"></div>
-      </section>
+      <div class="card">
+        <h2>Financial snapshot</h2>
+        <div class="snapshot-row">
+          <div><div class="l">Income</div><div class="v" style="color:var(--green)" id="snapIncome">$0.00</div></div>
+          <div><div class="l">Spent</div><div class="v" style="color:var(--red)" id="snapSpent">$0.00</div></div>
+          <div><div class="l">Left over</div><div class="v" id="snapLeft">$0.00</div></div>
+        </div>
+        <div id="snapBillsLine" class="muted"></div>
+      </div>
+      <div class="card">
+        <h2>Reminders</h2>
+        <div id="remindersList"></div>
+      </div>
+      <div class="card">
+        <div class="headrow"><h2>Upcoming bills</h2><button id="addBillBtnHome" class="btn-secondary" type="button"></button></div>
+        <div id="billsListHome"></div>
+      </div>
+      <div class="card">
+        <h2>To-do</h2>
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <input id="todoInput" type="text" placeholder="Add a task&hellip;">
+          <button id="todoAddBtn" class="btn-primary" type="button" style="padding:11px"></button>
+        </div>
+        <div id="todoList"></div>
+      </div>
     </div>
 
-    <!-- Expenses -->
-    <div id="view-expenses" class="view stack" hidden>
-      <section class="card pad settle" aria-label="Settle up">
-        <span style="font-size:12px;color:var(--mute)">Settle up</span>
-        <span id="settleText" style="font-size:13px">&nbsp;</span>
-        <span id="settleAmt" class="n">$0.00</span>
-        <button id="settleBtn" class="btn sm" type="button" style="align-self:flex-start;margin-top:4px" hidden>Record settlement</button>
-      </section>
-
-      <form id="form" class="card pad stack" autocomplete="off">
-        <h2 style="margin:0;font-size:15px">Add expense</h2>
-        <div>
-          <label class="lbl" for="amount" style="text-align:center">Amount</label>
-          <input id="amount" class="amt" type="text" inputmode="decimal" placeholder="$0.00">
+    <!-- Calendar -->
+    <div id="view-calendar" class="view" hidden>
+      <div class="card">
+        <div class="caltoggle">
+          <button id="scopeWeek" class="chip" type="button">Week</button>
+          <button id="scopeMonth" class="chip" type="button" aria-pressed="true">Month</button>
         </div>
-        <div><label class="lbl" for="desc">Description</label><input id="desc" type="text" placeholder="Hardware store"></div>
-        <fieldset><legend>Category</legend><div class="chips" id="cats"></div></fieldset>
-        <fieldset><legend>Paid by</legend>
-          <div class="seg" id="payer" style="grid-template-columns:repeat(2,1fr)">
-            <button type="button" data-v="J" aria-pressed="true">J</button>
-            <button type="button" data-v="P" aria-pressed="false">P</button>
-          </div>
-        </fieldset>
-        <fieldset><legend>Split</legend>
-          <div class="seg" id="split" style="grid-template-columns:repeat(3,1fr)">
-            <button type="button" data-v="half" aria-pressed="true">50 / 50</button>
-            <button type="button" data-v="custom" aria-pressed="false">Custom</button>
-            <button type="button" data-v="mine" aria-pressed="false">Just payer</button>
-          </div>
-          <div id="customWrap" hidden style="margin-top:8px">
-            <label class="lbl" for="otherShare">Other person's share ($)</label>
-            <input id="otherShare" type="text" inputmode="decimal" placeholder="0.00">
-          </div>
-          <p id="splitHint" class="hint"></p>
-        </fieldset>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
-          <div><label class="lbl" for="date">Date</label><input id="date" type="date"></div>
-          <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;min-height:46px">
-            <input id="recurring" type="checkbox" style="width:20px;height:20px;margin:0;accent-color:var(--accent)">Repeat as a bill
-          </label>
+        <div class="calnav">
+          <button id="calPrev" type="button"></button>
+          <div class="serif" id="calLabel" style="font-size:20px"></div>
+          <button id="calNext" type="button"></button>
         </div>
-        <p id="formErr" class="err" role="alert"></p>
-        <button id="saveBtn" class="btn" type="submit">Save expense</button>
-      </form>
-
-      <section class="card" aria-label="Expenses">
-        <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Expenses</div>
-        <div id="list"></div>
-      </section>
-    </div>
-
-    <!-- Bills -->
-    <div id="view-bills" class="view stack" hidden>
-      <form id="billForm" class="card pad stack" autocomplete="off">
-        <h2 style="margin:0;font-size:15px">Add bill</h2>
-        <div><label class="lbl" for="billName">Name</label><input id="billName" type="text" placeholder="Internet"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div><label class="lbl" for="billAmount">Amount ($)</label><input id="billAmount" type="text" inputmode="decimal" placeholder="0.00"></div>
-          <div><label class="lbl" for="billDueDay">Due day of month</label><input id="billDueDay" type="number" min="1" max="31" placeholder="15"></div>
-        </div>
-        <fieldset><legend>Category</legend><div class="chips" id="billCats"></div></fieldset>
-        <fieldset><legend>Assigned to</legend>
-          <div class="seg" id="billAssigned" style="grid-template-columns:repeat(2,1fr)">
-            <button type="button" data-v="J" aria-pressed="true">J</button>
-            <button type="button" data-v="P" aria-pressed="false">P</button>
-          </div>
-        </fieldset>
-        <p id="billErr" class="err" role="alert"></p>
-        <button id="billSaveBtn" class="btn" type="submit">Save bill</button>
-      </form>
-      <section class="card" aria-label="Bills">
-        <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Bills</div>
-        <div id="billList"></div>
-      </section>
-    </div>
-
-    <!-- Chores -->
-    <div id="view-chores" class="view stack" hidden>
-      <form id="choreForm" class="card pad stack" autocomplete="off">
-        <h2 style="margin:0;font-size:15px">Add chore</h2>
-        <div><label class="lbl" for="choreName">Name</label><input id="choreName" type="text" placeholder="Take out bins"></div>
-        <fieldset><legend>Assigned to</legend>
-          <div class="seg" id="choreAssigned" style="grid-template-columns:repeat(2,1fr)">
-            <button type="button" data-v="J" aria-pressed="true">J</button>
-            <button type="button" data-v="P" aria-pressed="false">P</button>
-          </div>
-        </fieldset>
-        <fieldset><legend>Repeats</legend>
-          <div class="seg" id="choreRecurrence" style="grid-template-columns:repeat(2,1fr)">
-            <button type="button" data-v="rolling" aria-pressed="true">Every N days</button>
-            <button type="button" data-v="weekly" aria-pressed="false">Weekly</button>
-          </div>
-        </fieldset>
-        <div id="choreRollingWrap">
-          <label class="lbl" for="choreInterval">Every how many days</label>
-          <input id="choreInterval" type="number" min="1" placeholder="7">
-        </div>
-        <div id="choreWeeklyWrap" hidden>
-          <label class="lbl">Which day</label>
-          <div class="chips" id="choreWeekday"></div>
-        </div>
-        <p id="choreErr" class="err" role="alert"></p>
-        <button id="choreSaveBtn" class="btn" type="submit">Save chore</button>
-      </form>
-      <section class="card" aria-label="Chores">
-        <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Chores</div>
-        <div id="choreList"></div>
-      </section>
+        <div class="calgrid" id="calDow"></div>
+        <div class="calgrid" id="calGrid" style="margin-top:4px"></div>
+      </div>
     </div>
 
     <!-- Budget -->
-    <div id="view-budget" class="view stack" hidden>
-      <section class="card" aria-label="Monthly budget">
-        <div class="sectionhead"><h2 id="budgetMonthLabel">This month</h2></div>
-        <div id="budgetList"></div>
-      </section>
+    <div id="view-budget" class="view" hidden>
+      <div class="stats2">
+        <div class="statcard"><div class="v" style="color:var(--red)" id="budgetSpent">$0.00</div><div class="l">Spent this month</div></div>
+        <div class="statcard"><div class="v" style="color:var(--green)" id="budgetIncome">$0.00</div><div class="l">Income this month</div></div>
+      </div>
+      <div class="card">
+        <div class="headrow">
+          <h2 style="display:flex;align-items:center;gap:8px;margin:0"></h2>
+          <div style="display:flex;gap:8px">
+            <button id="importBtn" class="btn-secondary" type="button"></button>
+            <button id="addEntryBtn" class="btn-primary" type="button"></button>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <div class="muted" style="font-weight:600;margin-bottom:4px">Spending</div>
+          <div class="chips" id="expenseCatTotals"></div>
+        </div>
+        <div style="margin-bottom:12px">
+          <div class="muted" style="font-weight:600;margin-bottom:4px">Income</div>
+          <div class="chips" id="incomeCatTotals"></div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+            <tbody id="entriesBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </main>
 </section>
+
+<div id="modalRoot"></div>
+<div class="fab-wrap" id="fabWrap" hidden>
+  <button class="fab-main" id="fabMain" type="button"></button>
+</div>
+<div id="toastRoot"></div>
+<div id="confettiRoot" style="position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:90"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
@@ -267,95 +260,228 @@ const firebaseConfig = {
   messagingSenderId: "1056599465636",
   appId: "1:1056599465636:web:f742a9997007890dae5031"
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-const BIG_CENTS = 20000; // $200 flagged as "big"
-const CATS = ['Housing', 'Groceries', 'Bills & utilities', 'Eating out', 'Transport', 'Other'];
-const WEEKDAYS = [{ l: 'Mon', v: 1 }, { l: 'Tue', v: 2 }, { l: 'Wed', v: 3 }, { l: 'Thu', v: 4 }, { l: 'Fri', v: 5 }, { l: 'Sat', v: 6 }, { l: 'Sun', v: 0 }];
 const $ = (id) => document.getElementById(id);
 
+// ---------- icons ----------
+function ic(paths, size = 16) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+const I = {
+  plus: ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  x: ic('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+  check: ic('<polyline points="20 6 9 17 4 12"/>'),
+  trash: ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>'),
+  pencil: ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>'),
+  upload: ic('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>'),
+  wallet: ic('<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>'),
+  dollar: ic('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+  calendar: ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+  chevL: ic('<polyline points="15 18 9 12 15 6"/>', 18),
+  chevR: ic('<polyline points="9 18 15 12 9 6"/>', 18),
+};
+$('calPrev').innerHTML = I.chevL; $('calNext').innerHTML = I.chevR;
+$('todoAddBtn').innerHTML = I.plus;
+$('addBillBtnHome').innerHTML = I.plus + ' Add bill';
+$('importBtn').innerHTML = I.upload + ' Import';
+$('addEntryBtn').innerHTML = I.plus + ' Add entry';
+$('fabMain').innerHTML = I.plus;
+document.querySelector('#view-budget h2').innerHTML = I.wallet + ' Budget';
+
+// ---------- constants ----------
+const WEEKDAY_FULL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const CHORE_PALETTE = ['#0A7CFF', '#0EA5A0', '#7C6FF0', '#5B6472', '#C77D3B', '#4A7A9C', '#333944', '#9C4F97'];
+const DEFAULT_CHORE_CATS = ['Kitchen', 'Bathroom', 'Living Space', 'Yard', 'Big / Occasional'];
+const DEFAULT_EXPENSE_CATS = ['Groceries', 'Cleaning Supplies', 'Home Maintenance', 'Utilities', 'Other'];
+const DEFAULT_INCOME_CATS = ['Salary', 'Other Income'];
+const CATEGORY_KEYWORDS = {
+  'Groceries': ['woolworths', 'coles', 'aldi', 'iga', 'supermarket'],
+  'Cleaning Supplies': ['bunnings', 'mitre 10', 'chemist', 'cleaning'],
+  'Home Maintenance': ['hardware', 'plumber', 'electrician', 'repair'],
+  'Utilities': ['energy', 'electricity', 'water', 'gas', 'internet', 'telstra', 'optus']
+};
+const INCOME_KEYWORDS = ['salary', 'payroll', 'wage', 'pay run', 'employer'];
+
+// ---------- helpers ----------
+function pad(n) { return String(n).padStart(2, '0'); }
+function toISO(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function fromISO(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function todayISO() { return toISO(new Date()); }
+function monthLabel(d) { return d.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }); }
+function startOfWeek(d) { const dow = (d.getDay() + 6) % 7; return new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow); }
+function weekLabel(d) {
+  const monday = startOfWeek(d);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  const startStr = monday.toLocaleDateString('en-AU', monday.getMonth() === sunday.getMonth() ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
+  const endStr = sunday.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${startStr} – ${endStr}`;
+}
+function choreCatColor(name, list) { const i = list.indexOf(name); return CHORE_PALETTE[(i < 0 ? 0 : i) % CHORE_PALETTE.length]; }
+function guessCategory(desc) {
+  const lower = (desc || '').toLowerCase();
+  for (const [cat, words] of Object.entries(CATEGORY_KEYWORDS)) if (words.find((w) => lower.includes(w))) return cat;
+  return 'Other';
+}
+function guessType(desc, rawAmount) {
+  const lower = (desc || '').toLowerCase();
+  if (INCOME_KEYWORDS.some((w) => lower.includes(w))) return 'income';
+  if (typeof rawAmount === 'number' && rawAmount > 0) return 'income';
+  return 'expense';
+}
+function fmt(cents) { return (cents / 100).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' }); }
+function parseMoney(s) { const n = parseFloat(String(s).replace(/[^0-9.-]/g, '')); return isFinite(n) ? Math.round(n * 100) : NaN; }
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function choreStreak(chore) {
+  if (chore.type !== 'recurring' || !chore.days || !chore.days.length) return 0;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = todayISO();
+  let streak = 0;
+  for (let i = 0; i < 370; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const dow = (d.getDay() + 6) % 7;
+    if (!chore.days.includes(dow)) continue;
+    const iso = toISO(d);
+    if (chore.completions.includes(iso)) { streak++; continue; }
+    if (iso === todayStr) continue;
+    break;
+  }
+  return streak;
+}
+function weekChoreProgress(chores) {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const todayDow = (now.getDay() + 6) % 7;
+  const monday = new Date(now); monday.setDate(monday.getDate() - todayDow);
+  let total = 0, done = 0;
+  const byCategory = {};
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday); d.setDate(d.getDate() + i);
+    const iso = toISO(d);
+    chores.forEach((c) => {
+      if (c.type === 'recurring' && c.days.includes(i)) {
+        total++;
+        const b = byCategory[c.category] || (byCategory[c.category] = { done: 0, total: 0 });
+        b.total++;
+        if (c.completions.includes(iso)) { done++; b.done++; }
+      }
+    });
+  }
+  return { done, total, byCategory };
+}
+function upcomingReminders(chores) {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const todayDow = (now.getDay() + 6) % 7;
+  const items = [];
+  chores.forEach((c) => {
+    if (c.type === 'oneoff') {
+      if (c.done) return;
+      const d = fromISO(c.date);
+      const diff = Math.round((d - now) / 86400000);
+      if (diff >= 0 && diff <= 7) items.push({ chore: c, diff, dateIso: c.date });
+    } else if (c.days.includes(todayDow) && !c.completions.includes(todayISO())) {
+      items.push({ chore: c, diff: 0, dateIso: todayISO() });
+    }
+  });
+  items.sort((a, b) => a.diff - b.diff);
+  return items;
+}
+function dueLabel(diff) {
+  if (diff < 0) return `Overdue ${Math.abs(diff)}d`;
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  return `In ${diff} days`;
+}
+function nextBillDue(bill) {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const scheduleType = bill.scheduleType || 'monthly';
+  if (scheduleType === 'oneoff') {
+    const due = fromISO(bill.date);
+    return { due, daysUntil: Math.round((due - now) / 86400000), paidThisCycle: !!bill.paidOnce };
+  }
+  if (scheduleType === 'weekly') {
+    const todayDow = (now.getDay() + 6) % 7;
+    const monday = new Date(now); monday.setDate(monday.getDate() - todayDow);
+    const periodKey = toISO(monday);
+    const paidThisCycle = bill.lastPaidPeriod === periodKey;
+    let due = new Date(monday); due.setDate(due.getDate() + bill.dueWeekday);
+    if (paidThisCycle || due < now) due.setDate(due.getDate() + 7);
+    return { due, daysUntil: Math.round((due - now) / 86400000), paidThisCycle };
+  }
+  const monthPrefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const paidThisCycle = bill.lastPaidPeriod === monthPrefix;
+  function dateForMonth(year, month) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return new Date(year, month, Math.min(bill.dueDay, lastDay));
+  }
+  let due = dateForMonth(now.getFullYear(), now.getMonth());
+  if (paidThisCycle) {
+    const nm = now.getMonth() + 1;
+    const ny = now.getFullYear() + (nm > 11 ? 1 : 0);
+    due = dateForMonth(ny, nm % 12);
+  }
+  return { due, daysUntil: Math.round((due - now) / 86400000), paidThisCycle };
+}
+
+// ---------- toast / confetti ----------
+function toast(message, variant) {
+  $('toastRoot').innerHTML = `<div class="toast ${variant === 'celebrate' ? 'celebrate' : ''}" style="animation:toastIn .25s cubic-bezier(.22,1,.36,1)">${esc(message)}</div>`;
+  setTimeout(() => {
+    const el = $('toastRoot').firstElementChild;
+    if (el) el.style.animation = 'toastOut .35s ease forwards';
+  }, 2000);
+  setTimeout(() => { $('toastRoot').innerHTML = ''; }, 2400);
+}
+function confetti() {
+  const colors = ['#0A7CFF', '#16A34A', '#7C6FF0', '#C2760C', '#0EA5A0'];
+  const root = $('confettiRoot');
+  root.innerHTML = '';
+  for (let i = 0; i < 28; i++) {
+    const s = document.createElement('span');
+    s.className = 'confetti-piece';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.background = colors[Math.floor(Math.random() * colors.length)];
+    s.style.animationDuration = (1.1 + Math.random() * 0.7) + 's';
+    s.style.animationDelay = (Math.random() * 0.25) + 's';
+    s.style.transform = `rotate(${Math.floor(Math.random() * 360)}deg)`;
+    root.appendChild(s);
+  }
+  setTimeout(() => { root.innerHTML = ''; }, 1900);
+}
+
+// ---------- modal ----------
+function openModal(title, bodyHTML) {
+  $('modalRoot').innerHTML = `
+    <div class="modal-backdrop" id="modalBackdrop">
+      <div class="modal" id="modalBox">
+        <div class="modal-head"><h3 class="serif">${esc(title)}</h3><button class="iconbtn" id="modalClose" type="button">${I.x}</button></div>
+        ${bodyHTML}
+      </div>
+    </div>`;
+  $('modalBackdrop').onclick = (e) => { if (e.target.id === 'modalBackdrop') closeModal(); };
+  $('modalClose').onclick = closeModal;
+}
+function closeModal() { $('modalRoot').innerHTML = ''; }
+
+// ---------- state ----------
 const state = {
-  cat: 'Other', payer: 'J', split: 'half',
-  billCat: 'Other', billAssigned: 'J',
-  choreAssigned: 'J', choreRecurrence: 'rolling', choreWeekday: 1,
   spaceId: null, view: 'home',
-  expenses: [], settlements: [], bills: [], chores: [], budget: { categories: {} },
-  unsubExpenses: null, unsubSettlements: null, unsubBills: null, unsubChores: null, unsubBudget: null
+  monthCursor: (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })(),
+  gridScope: 'month', selectedDay: null, fabOpen: false,
+  budgetEntries: [], chores: [], bills: [], todos: [],
+  expenseCats: DEFAULT_EXPENSE_CATS.slice(), incomeCats: DEFAULT_INCOME_CATS.slice(), choreCats: DEFAULT_CHORE_CATS.slice(),
+  unsubEntries: null, unsubChores: null, unsubBills: null, unsubTodos: null, unsubSpace: null
 };
 let currentInviteId = null;
 
 function getInviteParamsFromURL() {
   const p = new URLSearchParams(location.search);
-  const spaceId = p.get('space');
-  const inviteId = p.get('invite');
+  const spaceId = p.get('space'); const inviteId = p.get('invite');
   return (spaceId && inviteId) ? { spaceId, inviteId } : null;
 }
 const inviteParams = getInviteParamsFromURL();
 let authMode = inviteParams ? 'signup' : 'signin';
-
-// ---------- helpers ----------
-const fmt = (cents) => (cents / 100).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
-function parseMoney(s) {
-  const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
-  return isFinite(n) ? Math.round(n * 100) : NaN;
-}
-function todayISO() {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-function addDaysISO(iso, n) {
-  const d = new Date(iso + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-function daysUntil(iso) {
-  const a = new Date(todayISO() + 'T00:00:00');
-  const b = new Date(iso + 'T00:00:00');
-  return Math.round((b - a) / 86400000);
-}
-function currentYYYYMM() { return todayISO().slice(0, 7); }
-function nextWeekdayOnOrAfter(iso, weekday) {
-  let d = iso;
-  for (let i = 0; i < 7; i++) {
-    const dow = new Date(d + 'T00:00:00').getDay();
-    if (dow === weekday) return d;
-    d = addDaysISO(d, 1);
-  }
-  return d;
-}
-function dueDateThisPeriod(dueDay) {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const day = Math.min(dueDay, daysInMonth);
-  const d = new Date(y, m, day);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-const other = (p) => (p === 'J' ? 'P' : 'J');
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-// Amount (cents) the non-paying person owes the payer for an expense
-function owedToPayer(e) {
-  if (e.split === 'mine') return 0;
-  if (e.split === 'custom') return Math.min(e.otherShareCents || 0, e.amountCents);
-  return Math.round(e.amountCents / 2);
-}
-function netBalance() {
-  // net > 0 means P owes J
-  let net = 0;
-  state.expenses.forEach((e) => {
-    const owed = owedToPayer(e);
-    net += e.paidBy === 'J' ? owed : -owed;
-  });
-  state.settlements.forEach((s) => {
-    net += s.paidBy === 'J' ? s.amountCents : -s.amountCents;
-  });
-  return net;
-}
 
 // ---------- nav ----------
 function setView(view) {
@@ -364,90 +490,15 @@ function setView(view) {
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-current', String(b.dataset.view === view)));
   $('inviteCard').hidden = true;
   if (view === 'home') renderHome();
+  if (view === 'calendar') renderCalendar();
   if (view === 'budget') renderBudget();
 }
-$('tabs').addEventListener('click', (ev) => {
-  const btn = ev.target.closest('.tab');
-  if (btn) setView(btn.dataset.view);
-});
-
-// ---------- expense form UI ----------
-function buildCats() {
-  $('cats').innerHTML = '';
-  CATS.forEach((c) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip'; b.textContent = c;
-    b.setAttribute('aria-pressed', String(c === state.cat));
-    b.onclick = () => { state.cat = c; buildCats(); };
-    $('cats').appendChild(b);
-  });
-}
-function segment(id, key, after) {
-  $(id).querySelectorAll('button').forEach((b) => {
-    b.onclick = () => {
-      state[key] = b.dataset.v;
-      $(id).querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      after && after();
-    };
-  });
-}
-function updateSplitHint() {
-  $('customWrap').hidden = state.split !== 'custom';
-  const amt = parseMoney($('amount').value);
-  const o = other(state.payer);
-  let t = '';
-  if (state.split === 'half') t = isNaN(amt) ? `${o} owes half.` : `${o}'s share ${fmt(Math.round(amt / 2))} goes onto settle-up.`;
-  else if (state.split === 'mine') t = 'Nothing goes onto settle-up.';
-  else t = `${o}'s share goes onto settle-up.`;
-  $('splitHint').textContent = t;
-}
-buildCats();
-segment('payer', 'payer', updateSplitHint);
-segment('split', 'split', updateSplitHint);
-$('amount').addEventListener('input', updateSplitHint);
-$('date').value = todayISO();
-updateSplitHint();
-
-// ---------- bill form UI ----------
-function buildBillCats() {
-  $('billCats').innerHTML = '';
-  CATS.forEach((c) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip'; b.textContent = c;
-    b.setAttribute('aria-pressed', String(c === state.billCat));
-    b.onclick = () => { state.billCat = c; buildBillCats(); };
-    $('billCats').appendChild(b);
-  });
-}
-buildBillCats();
-segment('billAssigned', 'billAssigned');
-
-// ---------- chore form UI ----------
-function buildWeekdayChips() {
-  $('choreWeekday').innerHTML = '';
-  WEEKDAYS.forEach((w) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip'; b.textContent = w.l;
-    b.setAttribute('aria-pressed', String(w.v === state.choreWeekday));
-    b.onclick = () => { state.choreWeekday = w.v; buildWeekdayChips(); };
-    $('choreWeekday').appendChild(b);
-  });
-}
-buildWeekdayChips();
-segment('choreAssigned', 'choreAssigned');
-segment('choreRecurrence', 'choreRecurrence', () => {
-  $('choreRollingWrap').hidden = state.choreRecurrence !== 'rolling';
-  $('choreWeeklyWrap').hidden = state.choreRecurrence !== 'weekly';
-});
+$('tabs').addEventListener('click', (ev) => { const b = ev.target.closest('.tab'); if (b) setView(b.dataset.view); });
 
 // ---------- auth ----------
-// The signup toggle only appears when arriving via an invite link; there is
-// no general public signup, matching the invite-only model.
 if (inviteParams) {
-  $('inviteHint').hidden = false;
-  $('toggleMode').hidden = false;
-  $('loginBtn').textContent = 'Create account';
-  $('toggleMode').textContent = 'Already have an account? Sign in';
+  $('inviteHint').hidden = false; $('toggleMode').hidden = false;
+  $('loginBtn').textContent = 'Create account'; $('toggleMode').textContent = 'Already have an account? Sign in';
 }
 $('toggleMode').onclick = () => {
   authMode = authMode === 'signin' ? 'signup' : 'signin';
@@ -457,14 +508,10 @@ $('toggleMode').onclick = () => {
 };
 $('loginBtn').onclick = async () => {
   $('loginErr').textContent = '';
-  const email = $('email').value.trim();
-  const pw = $('pw').value;
+  const email = $('email').value.trim(); const pw = $('pw').value;
   try {
-    if (authMode === 'signup') {
-      await createUserWithEmailAndPassword(auth, email, pw);
-    } else {
-      await signInWithEmailAndPassword(auth, email, pw);
-    }
+    if (authMode === 'signup') await createUserWithEmailAndPassword(auth, email, pw);
+    else await signInWithEmailAndPassword(auth, email, pw);
   } catch (e) {
     $('loginErr').textContent = authMode === 'signup'
       ? 'Could not create account. Use a real email and a password of at least 6 characters.'
@@ -474,32 +521,22 @@ $('loginBtn').onclick = async () => {
 $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
 $('signOut').onclick = () => signOut(auth);
 
-// ---------- space ----------
+// ---------- space resolution ----------
 async function joinViaInvite(user, spaceId, inviteId) {
   const memberRef = doc(db, 'spaces', spaceId, 'members', user.uid);
   const existing = await getDoc(memberRef);
-  if (!existing.exists()) {
-    await setDoc(memberRef, { email: user.email, joinedAt: serverTimestamp(), joinedViaInvite: inviteId });
-  }
+  if (!existing.exists()) await setDoc(memberRef, { email: user.email, joinedAt: serverTimestamp(), joinedViaInvite: inviteId });
   await setDoc(doc(db, 'users', user.uid), { spaceId }, { merge: true });
   return spaceId;
 }
-
 async function resolveSpace(user) {
   const userDoc = await getDoc(doc(db, 'users', user.uid));
   if (userDoc.exists() && userDoc.data().spaceId) {
-    const knownSpaceId = userDoc.data().spaceId;
-    if (inviteParams && inviteParams.spaceId !== knownSpaceId) {
-      return joinViaInvite(user, inviteParams.spaceId, inviteParams.inviteId);
-    }
-    return knownSpaceId;
+    const known = userDoc.data().spaceId;
+    if (inviteParams && inviteParams.spaceId !== known) return joinViaInvite(user, inviteParams.spaceId, inviteParams.inviteId);
+    return known;
   }
-
-  if (inviteParams) {
-    return joinViaInvite(user, inviteParams.spaceId, inviteParams.inviteId);
-  }
-
-  // Migrate a space created under the Phase A memberUids-array model, if any.
+  if (inviteParams) return joinViaInvite(user, inviteParams.spaceId, inviteParams.inviteId);
   const legacyQ = query(collection(db, 'spaces'), where('memberUids', 'array-contains', user.uid), limit(1));
   const legacySnap = await getDocs(legacyQ);
   if (!legacySnap.empty) {
@@ -508,12 +545,7 @@ async function resolveSpace(user) {
     await setDoc(doc(db, 'users', user.uid), { spaceId }, { merge: true });
     return spaceId;
   }
-
-  const ref = await addDoc(collection(db, 'spaces'), {
-    name: 'Household',
-    ownerUid: user.uid,
-    createdAt: serverTimestamp()
-  });
+  const ref = await addDoc(collection(db, 'spaces'), { name: 'Household', ownerUid: user.uid, createdAt: serverTimestamp() });
   await setDoc(doc(db, 'spaces', ref.id, 'members', user.uid), { email: user.email, joinedAt: serverTimestamp() });
   await setDoc(doc(db, 'users', user.uid), { spaceId: ref.id }, { merge: true });
   return ref.id;
@@ -526,431 +558,565 @@ $('inviteBtn').onclick = async () => {
     const q = query(collection(db, 'spaces', state.spaceId, 'invites'), where('active', '==', true), limit(1));
     const snap = await getDocs(q);
     let inviteId;
-    if (!snap.empty) {
-      inviteId = snap.docs[0].id;
-    } else {
-      const ref = await addDoc(collection(db, 'spaces', state.spaceId, 'invites'), {
-        createdBy: auth.currentUser.uid,
-        createdAt: serverTimestamp(),
-        active: true
-      });
+    if (!snap.empty) inviteId = snap.docs[0].id;
+    else {
+      const ref = await addDoc(collection(db, 'spaces', state.spaceId, 'invites'), { createdBy: auth.currentUser.uid, createdAt: serverTimestamp(), active: true });
       inviteId = ref.id;
     }
     currentInviteId = inviteId;
-    const link = `${location.origin}${location.pathname}?space=${state.spaceId}&invite=${inviteId}`;
-    $('inviteLinkText').textContent = link;
+    $('inviteLinkText').textContent = `${location.origin}${location.pathname}?space=${state.spaceId}&invite=${inviteId}`;
     $('inviteCard').hidden = false;
-  } catch (e) {
-    console.error(e);
-    alert('Could not create an invite link.');
-  } finally {
-    $('inviteBtn').disabled = false;
-  }
+  } catch (e) { console.error(e); alert('Could not create an invite link.'); }
+  finally { $('inviteBtn').disabled = false; }
 };
 $('copyInviteBtn').onclick = async () => {
-  try {
-    await navigator.clipboard.writeText($('inviteLinkText').textContent);
-    $('copyInviteBtn').textContent = 'Copied!';
-    setTimeout(() => { $('copyInviteBtn').textContent = 'Copy link'; }, 1500);
-  } catch (e) {
-    console.error(e);
-  }
+  try { await navigator.clipboard.writeText($('inviteLinkText').textContent); $('copyInviteBtn').textContent = 'Copied!'; setTimeout(() => { $('copyInviteBtn').textContent = 'Copy link'; }, 1500); } catch (e) { console.error(e); }
 };
 $('revokeInviteBtn').onclick = async () => {
   if (!currentInviteId) return;
   await updateDoc(doc(db, 'spaces', state.spaceId, 'invites', currentInviteId), { active: false });
-  currentInviteId = null;
-  $('inviteCard').hidden = true;
+  currentInviteId = null; $('inviteCard').hidden = true;
 };
+
+// ---------- fab ----------
+function renderFab() {
+  const wrap = $('fabWrap');
+  wrap.hidden = false;
+  const actions = state.fabOpen ? `
+    <div class="fab-backdrop" id="fabBackdrop"></div>
+    <button class="fab-action" id="fabBill" style="background:var(--accent);color:#fff" type="button" title="Add bill">${I.wallet}</button>
+    <button class="fab-action" id="fabEntry" style="background:#7C6FF0;color:#fff" type="button" title="Add budget entry">${I.dollar}</button>
+    <button class="fab-action" id="fabChore" style="background:var(--ink);color:#fff" type="button" title="Add chore">${I.calendar}</button>
+  ` : '';
+  wrap.innerHTML = `<button class="fab-main ${state.fabOpen ? 'open' : ''}" id="fabMain" type="button">${I.plus}</button>${actions}`;
+  $('fabMain').onclick = () => { state.fabOpen = !state.fabOpen; renderFab(); };
+  if (state.fabOpen) {
+    $('fabBackdrop').onclick = () => { state.fabOpen = false; renderFab(); };
+    $('fabBill').onclick = () => { state.fabOpen = false; renderFab(); openBillModal(null); };
+    $('fabEntry').onclick = () => { state.fabOpen = false; renderFab(); openEntryModal(null); };
+    $('fabChore').onclick = () => { state.fabOpen = false; renderFab(); openChoreModal(null, todayISO()); };
+  }
+}
 
 onAuthStateChanged(auth, async (user) => {
   $('login').hidden = !!user;
   $('app').hidden = !user;
-  [state.unsubExpenses, state.unsubSettlements, state.unsubBills, state.unsubChores, state.unsubBudget].forEach((u) => u && u());
+  [state.unsubEntries, state.unsubChores, state.unsubBills, state.unsubTodos, state.unsubSpace].forEach((u) => u && u());
+  $('fabWrap').hidden = true;
   if (user) {
     state.spaceId = await resolveSpace(user);
     if (inviteParams) history.replaceState(null, '', location.pathname);
-    listenExpenses();
-    listenSettlements();
-    listenBills();
+    listenSpace();
+    listenEntries();
     listenChores();
-    listenBudget();
+    listenBills();
+    listenTodos();
     setView('home');
+    renderFab();
   }
 });
 
-// ---------- live data: expenses ----------
-function listenExpenses() {
-  const q = query(collection(db, 'spaces', state.spaceId, 'expenses'), orderBy('date', 'desc'), orderBy('createdAt', 'desc'));
-  state.unsubExpenses = onSnapshot(q, (snap) => {
-    $('syncDot').style.background = '#2E7D4F';
-    state.expenses = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderList(state.expenses);
-    renderSettle();
+function listenSpace() {
+  state.unsubSpace = onSnapshot(doc(db, 'spaces', state.spaceId), (snap) => {
+    const d = snap.data() || {};
+    state.expenseCats = (d.budgetCategories && d.budgetCategories.expense) || DEFAULT_EXPENSE_CATS.slice();
+    state.incomeCats = (d.budgetCategories && d.budgetCategories.income) || DEFAULT_INCOME_CATS.slice();
+    state.choreCats = d.choreCategories || DEFAULT_CHORE_CATS.slice();
+    if (state.view === 'budget') renderBudget();
+  });
+}
+async function saveBudgetCats(expense, income) {
+  await updateDoc(doc(db, 'spaces', state.spaceId), { budgetCategories: { expense, income } });
+}
+async function saveChoreCats(list) {
+  await updateDoc(doc(db, 'spaces', state.spaceId), { choreCategories: list });
+}
+
+// =================== BUDGET ENTRIES ===================
+function listenEntries() {
+  const q = query(collection(db, 'spaces', state.spaceId, 'budgetEntries'), orderBy('date', 'desc'));
+  state.unsubEntries = onSnapshot(q, (snap) => {
+    state.budgetEntries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (state.view === 'home') renderHome();
     if (state.view === 'budget') renderBudget();
-  }, (err) => {
-    console.error(err);
-    $('syncDot').style.background = '#8A3B1C';
   });
 }
-function renderList(items) {
-  const el = $('list');
-  if (!items.length) { el.innerHTML = '<div class="row"><span class="sub">No expenses yet.</span></div>'; return; }
-  el.innerHTML = items.map((e) => `
-    <div class="row">
-      <div class="grow">
-        <div>${esc(e.description)}${e.isBig ? '<span class="big">Big</span>' : ''}${e.recurring ? '<span class="big">Bill</span>' : ''}</div>
-        <div class="sub">${esc(e.date)} · ${esc(e.category)}</div>
-      </div>
-      <span class="who ${esc(e.paidBy)}">${esc(e.paidBy)}</span>
-      <span class="mono" style="min-width:76px;text-align:right">${fmt(e.amountCents)}</span>
-      <button class="del" data-id="${esc(e.id)}" aria-label="Delete ${esc(e.description)}">&times;</button>
-    </div>`).join('');
-  el.querySelectorAll('.del').forEach((b) => {
-    b.onclick = async () => {
-      if (confirm('Delete this expense?')) await deleteDoc(doc(db, 'spaces', state.spaceId, 'expenses', b.dataset.id));
-    };
-  });
+function monthStats() {
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const inMonth = state.budgetEntries.filter((e) => e.date && e.date.startsWith(prefix));
+  const spent = inMonth.filter((e) => e.type !== 'income').reduce((s, e) => s + e.amountCents, 0);
+  const income = inMonth.filter((e) => e.type === 'income').reduce((s, e) => s + e.amountCents, 0);
+  return { spent, income };
 }
-function renderSettle() {
-  const net = netBalance();
-  const text = net === 0 ? 'All square' : (net > 0 ? 'P owes J' : 'J owes P');
-  const amt = fmt(Math.abs(net));
-  $('settleText').textContent = text;
-  $('settleAmt').textContent = amt;
-  $('settleTextHome').textContent = text;
-  $('settleAmtHome').textContent = amt;
-  $('settleBtn').hidden = net === 0;
-  $('settleBtn').textContent = net === 0 ? 'Record settlement' : `Record ${net > 0 ? 'P' : 'J'} paid ${fmt(Math.abs(net))}`;
-}
-$('settleBtn').onclick = async () => {
-  const net = netBalance();
-  if (net === 0) return;
-  const payer = net > 0 ? 'P' : 'J';
-  if (!confirm(`Record that ${payer} paid ${fmt(Math.abs(net))} to settle up?`)) return;
-  $('settleBtn').disabled = true;
-  try {
-    await addDoc(collection(db, 'spaces', state.spaceId, 'settlements'), {
-      paidBy: payer,
-      amountCents: Math.abs(net),
-      date: todayISO(),
-      createdAt: serverTimestamp(),
-      createdBy: auth.currentUser.uid
-    });
-  } catch (e) {
-    console.error(e);
-    alert('Could not record the settlement.');
-  } finally {
-    $('settleBtn').disabled = false;
-  }
-};
-
-// ---------- save expense ----------
-$('form').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  $('formErr').textContent = '';
-  const amountCents = parseMoney($('amount').value);
-  const description = $('desc').value.trim();
-  if (!(amountCents > 0)) { $('formErr').textContent = 'Enter an amount.'; return; }
-  if (!description) { $('formErr').textContent = 'Add a description.'; return; }
-  let otherShareCents = 0;
-  if (state.split === 'custom') {
-    otherShareCents = parseMoney($('otherShare').value);
-    if (isNaN(otherShareCents) || otherShareCents < 0 || otherShareCents > amountCents) {
-      $('formErr').textContent = "Other person's share must be between $0 and the amount."; return;
-    }
-  }
-  $('saveBtn').disabled = true;
-  try {
-    await addDoc(collection(db, 'spaces', state.spaceId, 'expenses'), {
-      amountCents, description,
-      category: state.cat,
-      paidBy: state.payer,
-      split: state.split,
-      otherShareCents,
-      date: $('date').value || todayISO(),
-      recurring: $('recurring').checked,
-      isBig: amountCents >= BIG_CENTS,
-      source: 'manual',
-      createdBy: auth.currentUser.uid,
-      createdAt: serverTimestamp()
-    });
-    $('amount').value = ''; $('desc').value = ''; $('otherShare').value = '';
-    $('recurring').checked = false; $('date').value = todayISO();
-    updateSplitHint();
-  } catch (e) {
-    console.error(e);
-    $('formErr').textContent = 'Could not save. Check your connection and try again.';
-  } finally {
-    $('saveBtn').disabled = false;
-  }
-});
-
-// ---------- live data: settlements ----------
-function listenSettlements() {
-  const q = query(collection(db, 'spaces', state.spaceId, 'settlements'), orderBy('date', 'desc'));
-  state.unsubSettlements = onSnapshot(q, (snap) => {
-    state.settlements = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderSettle();
-    if (state.view === 'home') renderHome();
-  });
-}
-
-// ---------- bills ----------
-function listenBills() {
-  const q = query(collection(db, 'spaces', state.spaceId, 'bills'), orderBy('dueDay', 'asc'));
-  state.unsubBills = onSnapshot(q, (snap) => {
-    state.bills = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderBills();
-    if (state.view === 'home') renderHome();
-  });
-}
-function billStatus(bill) {
-  const due = dueDateThisPeriod(bill.dueDay);
-  if (bill.lastPaidPeriod === currentYYYYMM()) return { label: 'Paid', cls: 'status-paid', due };
-  const d = daysUntil(due);
-  if (d < 0) return { label: 'Overdue', cls: 'status-overdue', due };
-  if (d === 0) return { label: 'Due today', cls: 'status-due', due };
-  return { label: `Due in ${d}d`, cls: 'status-due', due };
-}
-function renderBills() {
-  const el = $('billList');
-  if (!state.bills.length) { el.innerHTML = '<div class="empty">No bills yet.</div>'; return; }
-  el.innerHTML = state.bills.map((b) => {
-    const s = billStatus(b);
-    return `
-    <div class="row">
-      <div class="grow">
-        <div>${esc(b.name)}</div>
-        <div class="sub">${esc(b.category)} · due day ${esc(b.dueDay)} · <span class="status ${s.cls}">${s.label}</span></div>
-      </div>
-      <span class="who ${esc(b.assignedTo)}">${esc(b.assignedTo)}</span>
-      <span class="mono" style="min-width:76px;text-align:right">${fmt(b.amountCents)}</span>
-      ${s.label !== 'Paid' ? `<button class="linkbtn pay" data-id="${esc(b.id)}" style="padding:4px">Mark paid</button>` : ''}
-      <button class="del" data-id="${esc(b.id)}" aria-label="Delete ${esc(b.name)}">&times;</button>
-    </div>`;
-  }).join('');
-  el.querySelectorAll('.pay').forEach((btn) => {
-    btn.onclick = async () => {
-      const bill = state.bills.find((b) => b.id === btn.dataset.id);
-      if (!bill) return;
-      const period = currentYYYYMM();
-      await updateDoc(doc(db, 'spaces', state.spaceId, 'bills', bill.id), { lastPaidPeriod: period });
-      await addDoc(collection(db, 'spaces', state.spaceId, 'expenses'), {
-        amountCents: bill.amountCents,
-        description: bill.name,
-        category: bill.category,
-        paidBy: bill.assignedTo,
-        split: 'half',
-        otherShareCents: 0,
-        date: todayISO(),
-        recurring: true,
-        isBig: bill.amountCents >= BIG_CENTS,
-        source: 'bill',
-        billId: bill.id,
-        createdBy: auth.currentUser.uid,
-        createdAt: serverTimestamp()
-      });
-    };
-  });
-  el.querySelectorAll('.del').forEach((btn) => {
-    btn.onclick = async () => {
-      if (confirm('Delete this bill?')) await deleteDoc(doc(db, 'spaces', state.spaceId, 'bills', btn.dataset.id));
-    };
-  });
-}
-$('billForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  $('billErr').textContent = '';
-  const name = $('billName').value.trim();
-  const amountCents = parseMoney($('billAmount').value);
-  const dueDay = parseInt($('billDueDay').value, 10);
-  if (!name) { $('billErr').textContent = 'Name the bill.'; return; }
-  if (!(amountCents > 0)) { $('billErr').textContent = 'Enter an amount.'; return; }
-  if (!(dueDay >= 1 && dueDay <= 31)) { $('billErr').textContent = 'Due day must be 1-31.'; return; }
-  $('billSaveBtn').disabled = true;
-  try {
-    await addDoc(collection(db, 'spaces', state.spaceId, 'bills'), {
-      name, amountCents, dueDay,
-      category: state.billCat,
-      assignedTo: state.billAssigned,
-      lastPaidPeriod: null,
-      createdAt: serverTimestamp()
-    });
-    $('billName').value = ''; $('billAmount').value = ''; $('billDueDay').value = '';
-  } catch (e) {
-    console.error(e);
-    $('billErr').textContent = 'Could not save. Try again.';
-  } finally {
-    $('billSaveBtn').disabled = false;
-  }
-});
-
-// ---------- chores ----------
-function listenChores() {
-  const q = query(collection(db, 'spaces', state.spaceId, 'chores'), orderBy('nextDue', 'asc'));
-  state.unsubChores = onSnapshot(q, (snap) => {
-    state.chores = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderChores();
-    if (state.view === 'home') renderHome();
-  });
-}
-function choreStatusLabel(c) {
-  const d = daysUntil(c.nextDue);
-  if (d < 0) return { label: 'Overdue', cls: 'status-overdue' };
-  if (d === 0) return { label: 'Due today', cls: 'status-due' };
-  return { label: `Due in ${d}d`, cls: 'status-due' };
-}
-function renderChores() {
-  const el = $('choreList');
-  if (!state.chores.length) { el.innerHTML = '<div class="empty">No chores yet.</div>'; return; }
-  el.innerHTML = state.chores.map((c) => {
-    const s = choreStatusLabel(c);
-    const rec = c.recurrence === 'rolling' ? `every ${c.intervalDays}d` : `weekly (${WEEKDAYS.find((w) => w.v === c.weekday)?.l || ''})`;
-    return `
-    <div class="row">
-      <div class="grow">
-        <div>${esc(c.name)}</div>
-        <div class="sub">${esc(rec)} · <span class="status ${s.cls}">${s.label}</span></div>
-      </div>
-      <span class="who ${esc(c.assignedTo)}">${esc(c.assignedTo)}</span>
-      <button class="linkbtn done" data-id="${esc(c.id)}" style="padding:4px">Mark done</button>
-      <button class="del" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">&times;</button>
-    </div>`;
-  }).join('');
-  el.querySelectorAll('.done').forEach((btn) => {
-    btn.onclick = async () => {
-      const c = state.chores.find((x) => x.id === btn.dataset.id);
-      if (!c) return;
-      const today = todayISO();
-      const nextDue = c.recurrence === 'rolling'
-        ? addDaysISO(today, c.intervalDays)
-        : nextWeekdayOnOrAfter(addDaysISO(today, 1), c.weekday);
-      await updateDoc(doc(db, 'spaces', state.spaceId, 'chores', c.id), { lastDone: today, nextDue });
-    };
-  });
-  el.querySelectorAll('.del').forEach((btn) => {
-    btn.onclick = async () => {
-      if (confirm('Delete this chore?')) await deleteDoc(doc(db, 'spaces', state.spaceId, 'chores', btn.dataset.id));
-    };
-  });
-}
-$('choreForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  $('choreErr').textContent = '';
-  const name = $('choreName').value.trim();
-  if (!name) { $('choreErr').textContent = 'Name the chore.'; return; }
-  let intervalDays = null, weekday = null, nextDue;
-  const today = todayISO();
-  if (state.choreRecurrence === 'rolling') {
-    intervalDays = parseInt($('choreInterval').value, 10);
-    if (!(intervalDays > 0)) { $('choreErr').textContent = 'Enter how many days between repeats.'; return; }
-    nextDue = addDaysISO(today, intervalDays);
-  } else {
-    weekday = state.choreWeekday;
-    nextDue = nextWeekdayOnOrAfter(today, weekday);
-  }
-  $('choreSaveBtn').disabled = true;
-  try {
-    await addDoc(collection(db, 'spaces', state.spaceId, 'chores'), {
-      name,
-      assignedTo: state.choreAssigned,
-      recurrence: state.choreRecurrence,
-      intervalDays, weekday,
-      lastDone: null, nextDue,
-      createdAt: serverTimestamp()
-    });
-    $('choreName').value = ''; $('choreInterval').value = '';
-  } catch (e) {
-    console.error(e);
-    $('choreErr').textContent = 'Could not save. Try again.';
-  } finally {
-    $('choreSaveBtn').disabled = false;
-  }
-});
-
-// ---------- budget ----------
-function listenBudget() {
-  const month = currentYYYYMM();
-  $('budgetMonthLabel').textContent = new Date(month + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
-  state.unsubBudget = onSnapshot(doc(db, 'spaces', state.spaceId, 'budgets', month), (snap) => {
-    state.budget = snap.exists() ? snap.data() : { categories: {} };
-    renderBudget();
-    if (state.view === 'home') renderHome();
-  });
-}
-function actualByCategory() {
-  const month = currentYYYYMM();
+function categoryTotals() {
   const totals = {};
-  state.expenses.filter((e) => e.date && e.date.startsWith(month)).forEach((e) => {
-    totals[e.category] = (totals[e.category] || 0) + e.amountCents;
-  });
+  [...state.expenseCats, ...state.incomeCats].forEach((c) => (totals[c] = 0));
+  state.budgetEntries.forEach((e) => { totals[e.category] = (totals[e.category] || 0) + e.amountCents; });
   return totals;
 }
+async function addEntry(entry) {
+  await addDoc(collection(db, 'spaces', state.spaceId, 'budgetEntries'), { source: 'manual', createdAt: serverTimestamp(), createdBy: auth.currentUser.uid, ...entry });
+  toast(`${entry.type === 'income' ? 'Income' : 'Expense'} logged — ${fmt(entry.amountCents)}`);
+}
+async function updateEntry(id, entry) {
+  await updateDoc(doc(db, 'spaces', state.spaceId, 'budgetEntries', id), entry);
+  toast(`Entry updated — ${fmt(entry.amountCents)}`);
+}
+async function deleteEntry(id) { await deleteDoc(doc(db, 'spaces', state.spaceId, 'budgetEntries', id)); }
+
 function renderBudget() {
-  const planned = state.budget.categories || {};
-  const actual = actualByCategory();
-  const el = $('budgetList');
-  el.innerHTML = CATS.map((cat) => {
-    const plannedCents = planned[cat] || 0;
-    const actualCents = actual[cat] || 0;
-    const pct = plannedCents > 0 ? Math.min(100, Math.round((actualCents / plannedCents) * 100)) : 0;
-    const over = plannedCents > 0 && actualCents > plannedCents;
+  const { spent, income } = monthStats();
+  $('budgetSpent').textContent = fmt(spent);
+  $('budgetIncome').textContent = fmt(income);
+  const totals = categoryTotals();
+  $('expenseCatTotals').innerHTML = state.expenseCats.map((c) => `<div class="catpill">${esc(c)}: <b style="color:var(--red)">${fmt(totals[c] || 0)}</b></div>`).join('');
+  $('incomeCatTotals').innerHTML = state.incomeCats.map((c) => `<div class="catpill">${esc(c)}: <b style="color:var(--green)">${fmt(totals[c] || 0)}</b></div>`).join('');
+  const sorted = [...state.budgetEntries].sort((a, b) => b.date.localeCompare(a.date));
+  const body = $('entriesBody');
+  if (!sorted.length) {
+    body.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:28px 20px">
+      <div class="muted" style="margin-bottom:10px">Nothing logged yet &mdash; add your first expense or income.</div>
+      <button class="btn-primary" id="firstEntryBtn" type="button">${I.plus} Add your first entry</button>
+    </td></tr>`;
+    $('firstEntryBtn').onclick = () => openEntryModal(null);
+    return;
+  }
+  body.innerHTML = sorted.map((e) => `
+    <tr>
+      <td>${esc(e.date)}</td><td>${esc(e.description)}</td><td>${esc(e.category)}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums;color:${e.type === 'income' ? 'var(--green)' : 'var(--red)'};font-weight:600">${e.type === 'income' ? '+' : '−'}${fmt(e.amountCents)}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="iconbtn edit-entry" data-id="${esc(e.id)}">${I.pencil}</button>
+        <button class="iconbtn del-entry" data-id="${esc(e.id)}">${I.trash}</button>
+      </td>
+    </tr>`).join('');
+  body.querySelectorAll('.edit-entry').forEach((b) => b.onclick = () => openEntryModal(state.budgetEntries.find((e) => e.id === b.dataset.id)));
+  body.querySelectorAll('.del-entry').forEach((b) => b.onclick = async () => { if (confirm('Delete this entry?')) await deleteEntry(b.dataset.id); });
+}
+$('addEntryBtn').onclick = () => openEntryModal(null);
+$('importBtn').onclick = () => openImportModal();
+
+function openEntryModal(editing) {
+  const type = editing ? editing.type : 'expense';
+  const cats = () => (modalState.type === 'income' ? state.incomeCats : state.expenseCats);
+  const modalState = { type, category: editing ? editing.category : state.expenseCats[0] };
+  function body() {
     return `
-    <div class="catrow">
-      <div class="top">
-        <div>
-          <div style="font-weight:500">${esc(cat)}</div>
-          <div class="sub">${fmt(actualCents)} of <input type="text" class="mono budget-input" data-cat="${esc(cat)}" inputmode="decimal" value="${plannedCents ? (plannedCents / 100).toFixed(2) : ''}" placeholder="0.00"></div>
-        </div>
+    <div class="field">
+      <label class="lbl">Type</label>
+      <div class="chips"><button type="button" class="chip" id="typeExpense" aria-pressed="${modalState.type === 'expense'}">Expense</button><button type="button" class="chip" id="typeIncome" aria-pressed="${modalState.type === 'income'}">Income</button></div>
+    </div>
+    <div class="field"><label class="lbl">Date</label><input type="date" id="eDate" value="${editing ? editing.date : todayISO()}"></div>
+    <div class="field"><label class="lbl">Description</label><input type="text" id="eDesc" value="${editing ? esc(editing.description) : ''}" placeholder="e.g. Woolworths"></div>
+    <div class="field">
+      <label class="lbl">Category</label>
+      <div style="display:flex;gap:6px">
+        <select id="eCat" style="flex:1">${cats().map((c) => `<option ${c === modalState.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+        <button type="button" class="btn-secondary" id="eCatAdd">${I.plus}</button>
       </div>
-      <div class="bar"><div class="bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
-    </div>`;
-  }).join('');
-  el.querySelectorAll('.budget-input').forEach((input) => {
-    input.addEventListener('change', async () => {
-      const cents = parseMoney(input.value) || 0;
-      const month = currentYYYYMM();
-      await setDoc(doc(db, 'spaces', state.spaceId, 'budgets', month), { categories: { [input.dataset.cat]: cents } }, { merge: true });
-    });
-  });
+    </div>
+    <div class="field"><label class="lbl">Amount ($)</label><input type="text" inputmode="decimal" id="eAmt" value="${editing ? (editing.amountCents / 100).toFixed(2) : ''}" placeholder="0.00"></div>
+    <p id="eErr" style="color:var(--red);font-size:13px;min-height:1em"></p>
+    <button class="btn-primary block" id="eSave" type="button">${editing ? 'Save changes' : 'Add entry'}</button>`;
+  }
+  openModal(editing ? 'Edit entry' : 'Add budget entry', body());
+  function wire() {
+    $('typeExpense').onclick = () => { modalState.type = 'expense'; modalState.category = state.expenseCats[0]; rerender(); };
+    $('typeIncome').onclick = () => { modalState.type = 'income'; modalState.category = state.incomeCats[0]; rerender(); };
+    $('eCatAdd').onclick = async () => {
+      const name = prompt('New category name');
+      if (!name || !name.trim()) return;
+      if (modalState.type === 'income') { if (!state.incomeCats.includes(name.trim())) { state.incomeCats.push(name.trim()); await saveBudgetCats(state.expenseCats, state.incomeCats); } }
+      else { if (!state.expenseCats.includes(name.trim())) { state.expenseCats.push(name.trim()); await saveBudgetCats(state.expenseCats, state.incomeCats); } }
+      modalState.category = name.trim();
+      rerender();
+    };
+    $('eSave').onclick = async () => {
+      const date = $('eDate').value || todayISO();
+      const description = $('eDesc').value.trim();
+      const category = $('eCat').value;
+      const amountCents = parseMoney($('eAmt').value);
+      if (!description) { $('eErr').textContent = 'Add a description.'; return; }
+      if (!(amountCents > 0)) { $('eErr').textContent = 'Enter an amount.'; return; }
+      const payload = { date, description, category, amountCents, type: modalState.type };
+      if (editing) await updateEntry(editing.id, payload); else await addEntry(payload);
+      closeModal();
+    };
+  }
+  function rerender() { document.querySelector('.modal').innerHTML = `<div class="modal-head"><h3 class="serif">${editing ? 'Edit entry' : 'Add budget entry'}</h3><button class="iconbtn" id="modalClose" type="button">${I.x}</button></div>` + body(); $('modalClose').onclick = closeModal; wire(); }
+  wire();
 }
 
-// ---------- home ----------
-function renderHome() {
-  const overdueBills = state.bills.filter((b) => billStatus(b).label === 'Overdue');
-  const overdueChores = state.chores.filter((c) => daysUntil(c.nextDue) < 0);
-  const overdueCount = overdueBills.length + overdueChores.length;
-  $('overdueStrip').hidden = overdueCount === 0;
-  $('overdueList').innerHTML = [
-    ...overdueBills.map((b) => `<div class="sub">${esc(b.name)} &mdash; ${fmt(b.amountCents)} (${esc(b.assignedTo)})</div>`),
-    ...overdueChores.map((c) => `<div class="sub">${esc(c.name)} &mdash; chore (${esc(c.assignedTo)})</div>`)
-  ].join('');
-
-  const weekBills = state.bills.filter((b) => { const d = daysUntil(billStatus(b).due); return d >= 0 && d <= 7 && billStatus(b).label !== 'Paid'; })
-    .map((b) => ({ type: 'Bill', name: b.name, date: billStatus(b).due, who: b.assignedTo, amt: fmt(b.amountCents) }));
-  const weekChores = state.chores.filter((c) => { const d = daysUntil(c.nextDue); return d >= 0 && d <= 7; })
-    .map((c) => ({ type: 'Chore', name: c.name, date: c.nextDue, who: c.assignedTo, amt: '' }));
-  const agenda = [...weekBills, ...weekChores].sort((a, b) => a.date.localeCompare(b.date));
-  $('agendaList').innerHTML = agenda.length ? agenda.map((a) => `
-    <div class="row">
-      <div class="grow">
-        <div>${esc(a.name)}</div>
-        <div class="sub">${esc(a.type)} · ${esc(a.date)}</div>
+function openImportModal() {
+  openModal('Import from CSV', `
+    <p class="muted" style="margin:0 0 12px">Upload a CSV with date, description and amount columns. We'll guess the category and type (income vs expense) — you can fix any row before importing.</p>
+    <input type="file" id="csvFile" accept=".csv">
+    <div id="csvPreview" style="margin-top:14px"></div>
+  `);
+  $('csvFile').onchange = (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: (results) => {
+        const rows = results.data.map((r) => {
+          const rawAmount = parseFloat(r.amount ?? r.Amount ?? r.AMOUNT ?? '');
+          const description = r.description || r.Description || r.DESCRIPTION || '';
+          const date = (r.date || r.Date || r.DATE || todayISO()).slice(0, 10);
+          const type = guessType(description, rawAmount);
+          return { date, description, amountCents: Math.round(Math.abs(rawAmount || 0) * 100), category: guessCategory(description), type };
+        }).filter((r) => r.amountCents > 0);
+        renderPreview(rows);
+      }
+    });
+  };
+  function renderPreview(rows) {
+    if (!rows.length) { $('csvPreview').innerHTML = '<div class="muted">No usable rows found.</div>'; return; }
+    $('csvPreview').innerHTML = `
+      <div class="tablewrap" style="max-height:260px;margin-bottom:12px">
+        <table><thead><tr><th>Date</th><th>Description</th><th>Cat</th><th>Type</th><th style="text-align:right">Amt</th></tr></thead>
+        <tbody>${rows.map((r, i) => `<tr><td>${esc(r.date)}</td><td>${esc(r.description)}</td><td>${esc(r.category)}</td><td>${esc(r.type)}</td><td style="text-align:right">${fmt(r.amountCents)}</td></tr>`).join('')}</tbody></table>
       </div>
-      <span class="who ${esc(a.who)}">${esc(a.who)}</span>
-      ${a.amt ? `<span class="mono" style="min-width:60px;text-align:right">${a.amt}</span>` : ''}
-    </div>`).join('') : '<div class="empty">Nothing due this week.</div>';
+      <button class="btn-primary block" id="csvCommit" type="button">Import ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}</button>`;
+    $('csvCommit').onclick = async () => {
+      for (const r of rows) await addDoc(collection(db, 'spaces', state.spaceId, 'budgetEntries'), { ...r, source: 'csv-import', createdAt: serverTimestamp(), createdBy: auth.currentUser.uid });
+      toast(`Imported ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}`);
+      closeModal();
+    };
+  }
+}
 
-  const planned = state.budget.categories || {};
-  const actual = actualByCategory();
-  const totalPlanned = Object.values(planned).reduce((a, b) => a + b, 0);
-  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
-  $('homeBudgetSummary').innerHTML = totalPlanned > 0
-    ? `<div class="sub">Spent ${fmt(totalActual)} of ${fmt(totalPlanned)} planned</div>
-       <div class="bar"><div class="bar-fill ${totalActual > totalPlanned ? 'over' : ''}" style="width:${Math.min(100, Math.round((totalActual / totalPlanned) * 100))}%"></div></div>`
-    : `<div class="sub">No budget set for this month yet &mdash; set one in the Budget tab.</div>`;
+// =================== CHORES ===================
+function listenChores() {
+  state.unsubChores = onSnapshot(collection(db, 'spaces', state.spaceId, 'chores'), (snap) => {
+    state.chores = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (state.view === 'home') renderHome();
+    if (state.view === 'calendar') renderCalendar();
+  });
+}
+function isChoreDoneOn(chore, iso) { return chore.type === 'recurring' ? chore.completions.includes(iso) : !!chore.done; }
+async function toggleChoreDone(chore, iso) {
+  let justCompleted = false;
+  let patch;
+  if (chore.type === 'recurring') {
+    const has = chore.completions.includes(iso);
+    justCompleted = !has;
+    patch = { completions: has ? chore.completions.filter((d) => d !== iso) : [...chore.completions, iso] };
+  } else {
+    justCompleted = !chore.done;
+    patch = { done: !chore.done };
+  }
+  const before = weekChoreProgress(state.chores);
+  await updateDoc(doc(db, 'spaces', state.spaceId, 'chores', chore.id), patch);
+  if (justCompleted) {
+    const after = weekChoreProgress(state.chores.map((c) => c.id === chore.id ? { ...c, ...patch } : c));
+    if (after.total > 0 && after.done === after.total && before.done < before.total) { confetti(); toast("🎉 Week's chores complete — nice work!", 'celebrate'); }
+    else toast(`Nice — "${chore.name}" done`);
+  }
+}
+async function deleteChore(id) { await deleteDoc(doc(db, 'spaces', state.spaceId, 'chores', id)); }
+
+function openChoreModal(editing, defaultDate) {
+  const ms = { category: editing ? editing.category : state.choreCats[0], type: editing ? editing.type : 'recurring', days: editing ? (editing.days || []) : [] };
+  function body() {
+    return `
+    <div class="field"><label class="lbl">Name</label><input type="text" id="cName" value="${editing ? esc(editing.name) : ''}" placeholder="e.g. Vacuum living room"></div>
+    <div class="field">
+      <label class="lbl">Category</label>
+      <div style="display:flex;gap:6px">
+        <select id="cCat" style="flex:1">${state.choreCats.map((c) => `<option ${c === ms.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+        <button type="button" class="btn-secondary" id="cCatAdd">${I.plus}</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lbl">Schedule</label>
+      <div class="chips"><button type="button" class="chip" id="typeWeekly" aria-pressed="${ms.type === 'recurring'}">Weekly</button><button type="button" class="chip" id="typeOneoff" aria-pressed="${ms.type === 'oneoff'}">One-off</button></div>
+    </div>
+    ${ms.type === 'recurring' ? `
+    <div class="field"><label class="lbl">Repeats on</label><div class="chips">${WEEKDAY_FULL.map((w, i) => `<button type="button" class="chip wd" data-i="${i}" aria-pressed="${ms.days.includes(i)}">${w}</button>`).join('')}</div></div>
+    ` : `<div class="field"><label class="lbl">Date</label><input type="date" id="cDate" value="${editing ? editing.date : defaultDate}"></div>`}
+    <p id="cErr" style="color:var(--red);font-size:13px;min-height:1em"></p>
+    <button class="btn-primary block" id="cSave" type="button">${editing ? 'Save changes' : 'Add chore'}</button>`;
+  }
+  openModal(editing ? 'Edit chore' : 'Add a chore', body());
+  function wire() {
+    $('typeWeekly').onclick = () => { ms.type = 'recurring'; rerender(); };
+    $('typeOneoff').onclick = () => { ms.type = 'oneoff'; rerender(); };
+    $('cCatAdd').onclick = async () => {
+      const name = prompt('New chore category');
+      if (!name || !name.trim()) return;
+      if (!state.choreCats.includes(name.trim())) { state.choreCats.push(name.trim()); await saveChoreCats(state.choreCats); }
+      ms.category = name.trim(); rerender();
+    };
+    if (ms.type === 'recurring') {
+      document.querySelectorAll('.wd').forEach((b) => b.onclick = () => {
+        const i = parseInt(b.dataset.i, 10);
+        ms.days = ms.days.includes(i) ? ms.days.filter((d) => d !== i) : [...ms.days, i];
+        rerender();
+      });
+    }
+    $('cSave').onclick = async () => {
+      const name = $('cName').value.trim();
+      const category = $('cCat').value;
+      if (!name) { $('cErr').textContent = 'Name the chore.'; return; }
+      let payload;
+      if (ms.type === 'recurring') {
+        if (!ms.days.length) { $('cErr').textContent = 'Pick at least one day.'; return; }
+        payload = { name, category, type: 'recurring', days: ms.days, completions: editing ? editing.completions : [] };
+      } else {
+        payload = { name, category, type: 'oneoff', date: $('cDate').value || defaultDate, done: editing ? editing.done : false };
+      }
+      if (editing) { await updateDoc(doc(db, 'spaces', state.spaceId, 'chores', editing.id), payload); toast(`"${name}" updated`); }
+      else { await addDoc(collection(db, 'spaces', state.spaceId, 'chores'), payload); toast(`"${name}" added to the calendar`); }
+      closeModal();
+    };
+  }
+  function rerender() { document.querySelector('.modal').innerHTML = `<div class="modal-head"><h3 class="serif">${editing ? 'Edit chore' : 'Add a chore'}</h3><button class="iconbtn" id="modalClose" type="button">${I.x}</button></div>` + body(); $('modalClose').onclick = closeModal; wire(); }
+  wire();
+}
+
+// =================== BILLS ===================
+function listenBills() {
+  state.unsubBills = onSnapshot(collection(db, 'spaces', state.spaceId, 'bills'), (snap) => {
+    state.bills = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (state.view === 'home') renderHome();
+    if (state.view === 'calendar') renderCalendar();
+  });
+}
+function sortedBills() { return state.bills.map((b) => ({ ...b, ...nextBillDue(b) })).sort((a, b) => a.daysUntil - b.daysUntil); }
+async function markBillPaid(bill) {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const scheduleType = bill.scheduleType || 'monthly';
+  let patch;
+  if (scheduleType === 'oneoff') patch = { paidOnce: true };
+  else if (scheduleType === 'weekly') { const todayDow = (now.getDay() + 6) % 7; const monday = new Date(now); monday.setDate(monday.getDate() - todayDow); patch = { lastPaidPeriod: toISO(monday) }; }
+  else patch = { lastPaidPeriod: `${now.getFullYear()}-${pad(now.getMonth() + 1)}` };
+  await updateDoc(doc(db, 'spaces', state.spaceId, 'bills', bill.id), patch);
+  await addDoc(collection(db, 'spaces', state.spaceId, 'budgetEntries'), { source: 'bill', billId: bill.id, date: todayISO(), description: bill.name, amountCents: bill.amountCents, category: bill.category, type: 'expense', createdAt: serverTimestamp(), createdBy: auth.currentUser.uid });
+  confetti();
+  toast(`🎉 "${bill.name}" paid — nice, that's sorted!`, 'celebrate');
+}
+async function deleteBill(id) { await deleteDoc(doc(db, 'spaces', state.spaceId, 'bills', id)); }
+
+function openBillModal(editing, defaultDueDay) {
+  const ms = { category: editing ? editing.category : state.expenseCats[0], scheduleType: editing ? (editing.scheduleType || 'monthly') : 'monthly' };
+  function body() {
+    return `
+    <div class="field"><label class="lbl">Name</label><input type="text" id="bName" value="${editing ? esc(editing.name) : ''}" placeholder="e.g. Internet"></div>
+    <div class="field"><label class="lbl">Amount ($)</label><input type="text" inputmode="decimal" id="bAmt" value="${editing ? (editing.amountCents / 100).toFixed(2) : ''}" placeholder="0.00"></div>
+    <div class="field">
+      <label class="lbl">Category</label>
+      <select id="bCat" style="width:100%">${state.expenseCats.map((c) => `<option ${c === ms.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+    </div>
+    <div class="field">
+      <label class="lbl">Schedule</label>
+      <div class="chips">
+        <button type="button" class="chip" id="schMonthly" aria-pressed="${ms.scheduleType === 'monthly'}">Monthly</button>
+        <button type="button" class="chip" id="schWeekly" aria-pressed="${ms.scheduleType === 'weekly'}">Weekly</button>
+        <button type="button" class="chip" id="schOneoff" aria-pressed="${ms.scheduleType === 'oneoff'}">One-off</button>
+      </div>
+    </div>
+    ${ms.scheduleType === 'monthly' ? `<div class="field"><label class="lbl">Due day of month</label><input type="number" min="1" max="31" id="bDueDay" value="${editing ? editing.dueDay : (defaultDueDay || new Date().getDate())}"></div>` : ''}
+    ${ms.scheduleType === 'weekly' ? `<div class="field"><label class="lbl">Due weekday</label><div class="chips">${WEEKDAY_FULL.map((w, i) => `<button type="button" class="chip wdbill" data-i="${i}" aria-pressed="${(editing ? editing.dueWeekday : 0) === i}">${w}</button>`).join('')}</div></div>` : ''}
+    ${ms.scheduleType === 'oneoff' ? `<div class="field"><label class="lbl">Date</label><input type="date" id="bDate" value="${editing ? editing.date : todayISO()}"></div>` : ''}
+    <p id="bErr" style="color:var(--red);font-size:13px;min-height:1em"></p>
+    <button class="btn-primary block" id="bSave" type="button">${editing ? 'Save changes' : 'Add bill'}</button>`;
+  }
+  openModal(editing ? 'Edit bill' : 'Add a bill', body());
+  let weeklyChoice = editing ? (editing.dueWeekday || 0) : 0;
+  function wire() {
+    $('schMonthly').onclick = () => { ms.scheduleType = 'monthly'; rerender(); };
+    $('schWeekly').onclick = () => { ms.scheduleType = 'weekly'; rerender(); };
+    $('schOneoff').onclick = () => { ms.scheduleType = 'oneoff'; rerender(); };
+    document.querySelectorAll('.wdbill').forEach((b) => b.onclick = () => { weeklyChoice = parseInt(b.dataset.i, 10); rerender(); });
+    $('bSave').onclick = async () => {
+      const name = $('bName').value.trim();
+      const amountCents = parseMoney($('bAmt').value);
+      const category = $('bCat').value;
+      if (!name) { $('bErr').textContent = 'Name the bill.'; return; }
+      if (!(amountCents > 0)) { $('bErr').textContent = 'Enter an amount.'; return; }
+      let payload = { name, amountCents, category, scheduleType: ms.scheduleType };
+      if (ms.scheduleType === 'monthly') {
+        const dueDay = parseInt($('bDueDay').value, 10);
+        if (!(dueDay >= 1 && dueDay <= 31)) { $('bErr').textContent = 'Due day must be 1-31.'; return; }
+        payload.dueDay = dueDay; payload.lastPaidPeriod = editing ? (editing.lastPaidPeriod || null) : null;
+      } else if (ms.scheduleType === 'weekly') {
+        payload.dueWeekday = weeklyChoice; payload.lastPaidPeriod = editing ? (editing.lastPaidPeriod || null) : null;
+      } else {
+        payload.date = $('bDate').value || todayISO(); payload.paidOnce = editing ? !!editing.paidOnce : false;
+      }
+      if (editing) { await updateDoc(doc(db, 'spaces', state.spaceId, 'bills', editing.id), payload); toast(`"${name}" updated`); }
+      else { await addDoc(collection(db, 'spaces', state.spaceId, 'bills'), payload); toast(`"${name}" added to bills`); }
+      closeModal();
+    };
+  }
+  function rerender() { document.querySelector('.modal').innerHTML = `<div class="modal-head"><h3 class="serif">${editing ? 'Edit bill' : 'Add a bill'}</h3><button class="iconbtn" id="modalClose" type="button">${I.x}</button></div>` + body(); $('modalClose').onclick = closeModal; wire(); }
+  wire();
+}
+
+// =================== TODOS ===================
+function listenTodos() {
+  const q = query(collection(db, 'spaces', state.spaceId, 'todos'), orderBy('createdAt', 'desc'));
+  state.unsubTodos = onSnapshot(q, (snap) => { state.todos = snap.docs.map((d) => ({ id: d.id, ...d.data() })); if (state.view === 'home') renderHome(); });
+}
+$('todoAddBtn').onclick = addTodoNow;
+$('todoInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodoNow(); });
+async function addTodoNow() {
+  const text = $('todoInput').value.trim();
+  if (!text) return;
+  await addDoc(collection(db, 'spaces', state.spaceId, 'todos'), { text, done: false, createdAt: serverTimestamp() });
+  $('todoInput').value = '';
+  toast('Added to your to-dos');
+}
+
+// =================== HOME ===================
+function renderHome() {
+  const wp = weekChoreProgress(state.chores);
+  $('weekProgressLabel').textContent = `${wp.done}/${wp.total}`;
+  $('weekProgressBar').style.width = `${wp.total ? Math.round((wp.done / wp.total) * 100) : 0}%`;
+  $('weekProgressEmpty').textContent = wp.total === 0 ? 'No recurring chores scheduled yet this week.' : '';
+  $('weekCategoryBars').innerHTML = Object.entries(wp.byCategory).map(([cat, b]) => `
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);margin-bottom:2px"><span>${esc(cat)}</span><span>${b.done}/${b.total}</span></div>
+      <div class="bar sm"><div class="bar-fill" style="width:${b.total ? Math.round((b.done / b.total) * 100) : 0}%;background:${choreCatColor(cat, state.choreCats)}"></div></div>
+    </div>`).join('');
+
+  const { spent, income } = monthStats();
+  $('snapIncome').textContent = fmt(income);
+  $('snapSpent').textContent = fmt(spent);
+  const left = income - spent;
+  $('snapLeft').textContent = fmt(left);
+  $('snapLeft').style.color = left < 0 ? 'var(--red)' : 'var(--green)';
+  const unpaid = sortedBills().filter((b) => !b.paidThisCycle);
+  $('snapBillsLine').textContent = `${unpaid.length} bill${unpaid.length === 1 ? '' : 's'} still due · ${fmt(unpaid.reduce((s, b) => s + b.amountCents, 0))} outstanding`;
+
+  const reminders = upcomingReminders(state.chores);
+  $('remindersList').innerHTML = reminders.length ? reminders.map(({ chore, diff, dateIso }) => {
+    const done = isChoreDoneOn(chore, dateIso);
+    return `<div class="row">
+      <button class="check ${done ? 'done' : ''}" data-id="${esc(chore.id)}" data-iso="${esc(dateIso)}">${done ? I.check : ''}</button>
+      <span style="flex:1;font-size:13px;${done ? 'text-decoration:line-through' : ''}">${esc(chore.name)}</span>
+      <span style="font-size:11px;font-weight:600;color:${diff <= 0 ? 'var(--accent)' : 'var(--ink-soft)'}">${dueLabel(diff)}</span>
+    </div>`;
+  }).join('') : '<div class="empty">Nothing due today or in the next week.</div>';
+  $('remindersList').querySelectorAll('.check').forEach((b) => b.onclick = () => toggleChoreDone(state.chores.find((c) => c.id === b.dataset.id), b.dataset.iso));
+
+  const bills = sortedBills();
+  $('billsListHome').innerHTML = bills.length ? bills.map((b) => `
+    <div class="row">
+      <div style="flex:1;min-width:100px"><div style="font-size:13px;font-weight:500">${esc(b.name)}</div><div class="muted">${fmt(b.amountCents)} · ${esc(b.category)}</div></div>
+      <span class="badge ${!b.paidThisCycle && b.daysUntil <= 3 ? 'warn' : 'muted'}">${b.paidThisCycle ? 'Paid' : dueLabel(b.daysUntil)}</span>
+      ${!b.paidThisCycle ? `<button class="btn-secondary pay-bill" data-id="${esc(b.id)}" style="padding:6px 10px;font-size:12px">Mark paid</button>` : ''}
+      <button class="iconbtn edit-bill" data-id="${esc(b.id)}">${I.pencil}</button>
+      <button class="iconbtn del-bill" data-id="${esc(b.id)}">${I.trash}</button>
+    </div>`).join('') : '<div class="empty">No bills tracked yet — add one to get a countdown.</div>';
+  $('billsListHome').querySelectorAll('.pay-bill').forEach((b) => b.onclick = () => markBillPaid(state.bills.find((x) => x.id === b.dataset.id)));
+  $('billsListHome').querySelectorAll('.edit-bill').forEach((b) => b.onclick = () => openBillModal(state.bills.find((x) => x.id === b.dataset.id)));
+  $('billsListHome').querySelectorAll('.del-bill').forEach((b) => b.onclick = async () => { if (confirm('Delete this bill?')) await deleteBill(b.dataset.id); });
+
+  $('todoList').innerHTML = state.todos.length ? state.todos.map((t) => `
+    <div class="row">
+      <button class="check ${t.done ? 'done' : ''}" data-id="${esc(t.id)}">${t.done ? I.check : ''}</button>
+      <span style="flex:1;font-size:13px;${t.done ? 'text-decoration:line-through;color:var(--ink-soft)' : ''}">${esc(t.text)}</span>
+      <button class="iconbtn del-todo" data-id="${esc(t.id)}">${I.x}</button>
+    </div>`).join('') : '<div class="empty">Nothing on the list — anything on your mind goes here, no schedule needed.</div>';
+  $('todoList').querySelectorAll('.check').forEach((b) => b.onclick = async () => { const t = state.todos.find((x) => x.id === b.dataset.id); await updateDoc(doc(db, 'spaces', state.spaceId, 'todos', t.id), { done: !t.done }); });
+  $('todoList').querySelectorAll('.del-todo').forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, 'spaces', state.spaceId, 'todos', b.dataset.id)); });
+}
+$('addBillBtnHome').onclick = () => openBillModal(null);
+
+// =================== CALENDAR ===================
+$('scopeWeek').onclick = () => { state.gridScope = 'week'; $('scopeWeek').setAttribute('aria-pressed', 'true'); $('scopeMonth').setAttribute('aria-pressed', 'false'); renderCalendar(); };
+$('scopeMonth').onclick = () => { state.gridScope = 'month'; $('scopeMonth').setAttribute('aria-pressed', 'true'); $('scopeWeek').setAttribute('aria-pressed', 'false'); renderCalendar(); };
+$('calPrev').onclick = () => { state.monthCursor = state.gridScope === 'week' ? new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth(), state.monthCursor.getDate() - 7) : new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1); renderCalendar(); };
+$('calNext').onclick = () => { state.monthCursor = state.gridScope === 'week' ? new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth(), state.monthCursor.getDate() + 7) : new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1); renderCalendar(); };
+$('calDow').innerHTML = WEEKDAY_FULL.map((w) => `<div class="dow">${w}</div>`).join('');
+
+function choresForDate(date) {
+  const iso = toISO(date); const dow = (date.getDay() + 6) % 7;
+  return state.chores.filter((c) => (c.type === 'recurring' ? c.days.includes(dow) : c.date === iso));
+}
+function billsForDate(date) {
+  const iso = toISO(date);
+  return state.bills.filter((b) => {
+    const st = b.scheduleType || 'monthly';
+    if (st === 'oneoff') return b.date === iso;
+    if (st === 'weekly') return ((date.getDay() + 6) % 7) === b.dueWeekday;
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    return Math.min(b.dueDay, lastDay) === date.getDate();
+  });
+}
+function gridDays() {
+  if (state.gridScope === 'week') {
+    const monday = startOfWeek(state.monthCursor);
+    return Array.from({ length: 7 }, (_, i) => ({ date: new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i), inMonth: true }));
+  }
+  const year = state.monthCursor.getFullYear(), month = state.monthCursor.getMonth();
+  const first = new Date(year, month, 1);
+  const startPad = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.ceil((startPad + daysInMonth) / 7) * 7;
+  const cells = [];
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - startPad + 1;
+    const date = new Date(year, month, dayNum);
+    cells.push({ date, inMonth: dayNum >= 1 && dayNum <= daysInMonth });
+  }
+  return cells;
+}
+function renderCalendar() {
+  $('calLabel').textContent = state.gridScope === 'week' ? weekLabel(state.monthCursor) : monthLabel(state.monthCursor);
+  const today = todayISO();
+  $('calGrid').innerHTML = gridDays().map(({ date, inMonth }) => {
+    const iso = toISO(date);
+    const dueChores = choresForDate(date);
+    const dueBills = billsForDate(date);
+    const banners = [
+      ...dueChores.map((c) => ({ color: choreCatColor(c.category, state.choreCats), faded: isChoreDoneOn(c, iso) })),
+      ...dueBills.map(() => ({ color: 'var(--accent)', faded: false }))
+    ];
+    const isToday = iso === today;
+    return `<button class="daybtn ${isToday ? 'today' : ''} ${inMonth ? '' : 'out'}" data-iso="${iso}" ${inMonth ? '' : 'disabled'}>
+      <span class="dnum">${date.getDate()}</span>
+      ${banners.length ? `<div class="banners">${banners.slice(0, 3).map((b) => `<span style="background:${b.color};opacity:${b.faded ? 0.3 : 1}"></span>`).join('')}${banners.length > 3 ? `<span style="font-size:8px;color:var(--ink-soft)">+${banners.length - 3}</span>` : ''}</div>` : ''}
+    </button>`;
+  }).join('');
+  $('calGrid').querySelectorAll('.daybtn:not([disabled])').forEach((b) => b.onclick = () => openDayModal(b.dataset.iso));
+}
+
+function openDayModal(iso) {
+  const date = fromISO(iso);
+  const chores = choresForDate(date);
+  const bills = billsForDate(date);
+  const body = `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      ${chores.length === 0 ? '<div class="empty">No chores scheduled.</div>' : chores.map((c) => {
+        const done = isChoreDoneOn(c, iso); const streak = choreStreak(c);
+        return `<div class="row">
+          <button class="check ${done ? 'done' : ''}" data-id="${esc(c.id)}">${done ? I.check : ''}</button>
+          <div style="flex:1"><div style="font-size:14px;${done ? 'text-decoration:line-through' : ''}">${esc(c.name)}</div><div class="muted">${esc(c.category)} · ${c.type === 'recurring' ? 'weekly' : 'one-off'}</div></div>
+          ${streak >= 2 ? `<span class="badge" style="color:var(--accent);background:var(--accent-soft)">${streak} streak</span>` : ''}
+          <button class="iconbtn edit-day-chore" data-id="${esc(c.id)}">${I.pencil}</button>
+          <button class="iconbtn del-day-chore" data-id="${esc(c.id)}">${I.trash}</button>
+        </div>`;
+      }).join('')}
+      ${bills.length ? '<div class="muted" style="font-weight:600;margin-top:4px">Bills due</div>' : ''}
+      ${bills.map((b) => { const { paidThisCycle } = nextBillDue(b); return `<div class="row">
+          <div style="flex:1"><div style="font-size:14px">${esc(b.name)}</div><div class="muted">${fmt(b.amountCents)} · ${esc(b.category)}</div></div>
+          <span class="badge ${paidThisCycle ? 'muted' : 'warn'}">${paidThisCycle ? 'Paid' : 'Due'}</span>
+        </div>`; }).join('')}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-secondary block" id="dayAddChore" type="button">${I.calendar} Add a chore</button>
+      <button class="btn-secondary block" id="dayAddBill" type="button">${I.wallet} Add a bill</button>
+    </div>`;
+  openModal(date.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }), body);
+  document.querySelectorAll('.check').forEach((b) => b.onclick = async () => { await toggleChoreDone(chores.find((c) => c.id === b.dataset.id), iso); closeModal(); openDayModal(iso); });
+  document.querySelectorAll('.edit-day-chore').forEach((b) => b.onclick = () => { closeModal(); openChoreModal(state.chores.find((c) => c.id === b.dataset.id), iso); });
+  document.querySelectorAll('.del-day-chore').forEach((b) => b.onclick = async () => { if (confirm('Delete this chore?')) { await deleteChore(b.dataset.id); closeModal(); } });
+  $('dayAddChore').onclick = () => { closeModal(); openChoreModal(null, iso); };
+  $('dayAddBill').onclick = () => { closeModal(); openBillModal(null, date.getDate()); };
 }
 </script>
 </body>

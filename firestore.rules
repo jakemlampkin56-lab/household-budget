@@ -40,11 +40,15 @@ service cloud.firestore {
         allow update: if request.auth != null && (isMember() || isLegacyMember());
       }
 
+      // Legacy Phase 1-5 collections (flat J/P expense-splitting model),
+      // kept readable/writable in case any old data still references them.
       match /expenses/{expenseId} {
         allow read, write: if request.auth != null && (isMember() || isLegacyMember());
       }
-
       match /settlements/{settlementId} {
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
+      }
+      match /budgets/{month} {
         allow read, write: if request.auth != null && (isMember() || isLegacyMember());
       }
 
@@ -56,7 +60,11 @@ service cloud.firestore {
         allow read, write: if request.auth != null && (isMember() || isLegacyMember());
       }
 
-      match /budgets/{month} {
+      match /budgetEntries/{entryId} {
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
+      }
+
+      match /todos/{todoId} {
         allow read, write: if request.auth != null && (isMember() || isLegacyMember());
       }
     }
