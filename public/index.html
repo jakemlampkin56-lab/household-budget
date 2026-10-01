@@ -135,6 +135,8 @@
       <p id="loginErr" class="muted" style="color:var(--red);min-height:1em" role="alert"></p>
       <button id="loginBtn" class="btn-primary block">Sign in</button>
       <div style="text-align:center;margin-top:8px"><button id="toggleMode" class="linkbtn" type="button" hidden>Need an account? Create one</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0"><div style="flex:1;height:1px;background:var(--line)"></div><span class="muted">or</span><div style="flex:1;height:1px;background:var(--line)"></div></div>
+      <button id="googleBtn" class="btn-secondary block" type="button">Sign in with Google</button>
     </div>
   </main>
 </section>
@@ -258,7 +260,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, limit, getDocs, getDoc, setDoc, updateDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -541,6 +543,15 @@ $('loginBtn').onclick = async () => {
   }
 };
 $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+$('googleBtn').onclick = async () => {
+  $('loginErr').textContent = '';
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch (e) {
+    console.error(e);
+    $('loginErr').textContent = 'Could not sign in with Google.';
+  }
+};
 $('signOut').onclick = () => signOut(auth);
 
 // ---------- space resolution ----------
@@ -567,10 +578,11 @@ async function resolveSpace(user) {
     await setDoc(doc(db, 'users', user.uid), { spaceId }, { merge: true });
     return spaceId;
   }
-  const ref = await addDoc(collection(db, 'spaces'), { name: 'Household', ownerUid: user.uid, createdAt: serverTimestamp() });
-  await setDoc(doc(db, 'spaces', ref.id, 'members', user.uid), { email: user.email, joinedAt: serverTimestamp() });
-  await setDoc(doc(db, 'users', user.uid), { spaceId: ref.id }, { merge: true });
-  return ref.id;
+  // No existing membership and no invite link: refuse rather than silently
+  // bootstrapping a new space. This is what keeps the app invite-only for
+  // every sign-in method, including Google (whose button can't be hidden
+  // the way the email signup toggle is).
+  throw new Error('NO_INVITE');
 }
 
 // ---------- invites ----------
@@ -645,12 +657,25 @@ function renderFab() {
 }
 
 onAuthStateChanged(auth, async (user) => {
-  $('login').hidden = !!user;
-  $('app').hidden = !user;
   [state.unsubEntries, state.unsubChores, state.unsubBills, state.unsubTodos, state.unsubSpace, state.unsubMembers].forEach((u) => u && u());
   $('fabWrap').hidden = true;
   if (user) {
-    state.spaceId = await resolveSpace(user);
+    let spaceId;
+    try {
+      spaceId = await resolveSpace(user);
+    } catch (e) {
+      if (e.message === 'NO_INVITE') {
+        $('loginErr').textContent = 'This app is invite-only — ask a current member for an invite link to join.';
+      } else {
+        console.error(e);
+        $('loginErr').textContent = 'Something went wrong signing you in.';
+      }
+      await signOut(auth);
+      return;
+    }
+    state.spaceId = spaceId;
+    $('login').hidden = true;
+    $('app').hidden = false;
     if (inviteParams) history.replaceState(null, '', location.pathname);
     listenSpace();
     listenMembers();
@@ -660,6 +685,9 @@ onAuthStateChanged(auth, async (user) => {
     listenTodos();
     setView('home');
     renderFab();
+  } else {
+    $('login').hidden = false;
+    $('app').hidden = true;
   }
 });
 
