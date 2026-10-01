@@ -55,11 +55,12 @@
   <main>
     <div class="card pad stack">
       <h1 style="margin:0;font-size:20px">Household</h1>
+      <p id="inviteHint" class="hint" hidden>You've been invited to join a space. Sign in, or create an account to accept.</p>
       <div><label class="lbl" for="email">Email</label><input id="email" type="email" autocomplete="username"></div>
       <div><label class="lbl" for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"></div>
       <p id="loginErr" class="err" role="alert"></p>
       <button id="loginBtn" class="btn">Sign in</button>
-      <button id="toggleMode" class="linkbtn" type="button">Need an account? Create one</button>
+      <button id="toggleMode" class="linkbtn" type="button" hidden>Need an account? Create one</button>
     </div>
   </main>
 </section>
@@ -69,9 +70,19 @@
   <header>
     <h1>Household</h1>
     <span id="syncDot" title="Live" style="width:8px;height:8px;border-radius:50%;background:#2E7D4F"></span>
+    <button id="inviteBtn" class="linkbtn" type="button">Invite</button>
     <button id="signOut" class="linkbtn">Sign out</button>
   </header>
   <main>
+    <section id="inviteCard" class="card pad stack" hidden>
+      <span style="font-size:12px;color:var(--mute)">Invite link &mdash; anyone with this link can join your space</span>
+      <div class="mono" id="inviteLinkText" style="word-break:break-all;font-size:13px"></div>
+      <div style="display:flex;gap:8px">
+        <button id="copyInviteBtn" class="linkbtn" type="button">Copy link</button>
+        <button id="revokeInviteBtn" class="linkbtn" type="button" style="color:#8A3B1C">Revoke</button>
+      </div>
+    </section>
+
     <section class="card pad settle" aria-label="Settle up">
       <span style="font-size:12px;color:var(--mute)">Settle up</span>
       <span id="settleText" style="font-size:13px">&nbsp;</span>
@@ -125,7 +136,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, limit, getDocs, serverTimestamp }
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, limit, getDocs, getDoc, setDoc, updateDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -146,7 +157,16 @@ const CATS = ['Housing', 'Groceries', 'Bills & utilities', 'Eating out', 'Transp
 const $ = (id) => document.getElementById(id);
 
 const state = { cat: 'Other', payer: 'J', split: 'half', unsub: null, spaceId: null };
-let authMode = 'signin';
+let currentInviteId = null;
+
+function getInviteParamsFromURL() {
+  const p = new URLSearchParams(location.search);
+  const spaceId = p.get('space');
+  const inviteId = p.get('invite');
+  return (spaceId && inviteId) ? { spaceId, inviteId } : null;
+}
+const inviteParams = getInviteParamsFromURL();
+let authMode = inviteParams ? 'signup' : 'signin';
 
 // ---------- helpers ----------
 const fmt = (cents) => (cents / 100).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
@@ -207,6 +227,14 @@ $('date').value = todayISO();
 updateSplitHint();
 
 // ---------- auth ----------
+// The signup toggle only appears when arriving via an invite link; there is
+// no general public signup, matching the invite-only model.
+if (inviteParams) {
+  $('inviteHint').hidden = false;
+  $('toggleMode').hidden = false;
+  $('loginBtn').textContent = 'Create account';
+  $('toggleMode').textContent = 'Already have an account? Sign in';
+}
 $('toggleMode').onclick = () => {
   authMode = authMode === 'signin' ? 'signup' : 'signin';
   $('loginBtn').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
@@ -233,28 +261,101 @@ $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn'
 $('signOut').onclick = () => signOut(auth);
 
 // ---------- space ----------
-async function ensureSpace(user) {
-  const q = query(collection(db, 'spaces'), where('memberUids', 'array-contains', user.uid), limit(1));
-  const snap = await getDocs(q);
-  if (!snap.empty) {
-    state.spaceId = snap.docs[0].id;
-    return;
+async function joinViaInvite(user, spaceId, inviteId) {
+  const memberRef = doc(db, 'spaces', spaceId, 'members', user.uid);
+  const existing = await getDoc(memberRef);
+  if (!existing.exists()) {
+    await setDoc(memberRef, { email: user.email, joinedAt: serverTimestamp(), joinedViaInvite: inviteId });
   }
+  await setDoc(doc(db, 'users', user.uid), { spaceId }, { merge: true });
+  return spaceId;
+}
+
+async function resolveSpace(user) {
+  const userDoc = await getDoc(doc(db, 'users', user.uid));
+  if (userDoc.exists() && userDoc.data().spaceId) {
+    const knownSpaceId = userDoc.data().spaceId;
+    if (inviteParams && inviteParams.spaceId !== knownSpaceId) {
+      return joinViaInvite(user, inviteParams.spaceId, inviteParams.inviteId);
+    }
+    return knownSpaceId;
+  }
+
+  if (inviteParams) {
+    return joinViaInvite(user, inviteParams.spaceId, inviteParams.inviteId);
+  }
+
+  // Migrate a space created under the Phase A memberUids-array model, if any.
+  const legacyQ = query(collection(db, 'spaces'), where('memberUids', 'array-contains', user.uid), limit(1));
+  const legacySnap = await getDocs(legacyQ);
+  if (!legacySnap.empty) {
+    const spaceId = legacySnap.docs[0].id;
+    await setDoc(doc(db, 'spaces', spaceId, 'members', user.uid), { email: user.email, joinedAt: serverTimestamp() });
+    await setDoc(doc(db, 'users', user.uid), { spaceId }, { merge: true });
+    return spaceId;
+  }
+
   const ref = await addDoc(collection(db, 'spaces'), {
     name: 'Household',
     ownerUid: user.uid,
-    memberUids: [user.uid],
     createdAt: serverTimestamp()
   });
-  state.spaceId = ref.id;
+  await setDoc(doc(db, 'spaces', ref.id, 'members', user.uid), { email: user.email, joinedAt: serverTimestamp() });
+  await setDoc(doc(db, 'users', user.uid), { spaceId: ref.id }, { merge: true });
+  return ref.id;
 }
+
+// ---------- invites ----------
+$('inviteBtn').onclick = async () => {
+  $('inviteBtn').disabled = true;
+  try {
+    const q = query(collection(db, 'spaces', state.spaceId, 'invites'), where('active', '==', true), limit(1));
+    const snap = await getDocs(q);
+    let inviteId;
+    if (!snap.empty) {
+      inviteId = snap.docs[0].id;
+    } else {
+      const ref = await addDoc(collection(db, 'spaces', state.spaceId, 'invites'), {
+        createdBy: auth.currentUser.uid,
+        createdAt: serverTimestamp(),
+        active: true
+      });
+      inviteId = ref.id;
+    }
+    currentInviteId = inviteId;
+    const link = `${location.origin}${location.pathname}?space=${state.spaceId}&invite=${inviteId}`;
+    $('inviteLinkText').textContent = link;
+    $('inviteCard').hidden = false;
+  } catch (e) {
+    console.error(e);
+    alert('Could not create an invite link.');
+  } finally {
+    $('inviteBtn').disabled = false;
+  }
+};
+$('copyInviteBtn').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('inviteLinkText').textContent);
+    $('copyInviteBtn').textContent = 'Copied!';
+    setTimeout(() => { $('copyInviteBtn').textContent = 'Copy link'; }, 1500);
+  } catch (e) {
+    console.error(e);
+  }
+};
+$('revokeInviteBtn').onclick = async () => {
+  if (!currentInviteId) return;
+  await updateDoc(doc(db, 'spaces', state.spaceId, 'invites', currentInviteId), { active: false });
+  currentInviteId = null;
+  $('inviteCard').hidden = true;
+};
 
 onAuthStateChanged(auth, async (user) => {
   $('login').hidden = !!user;
   $('app').hidden = !user;
   if (state.unsub) { state.unsub(); state.unsub = null; }
   if (user) {
-    await ensureSpace(user);
+    state.spaceId = await resolveSpace(user);
+    if (inviteParams) history.replaceState(null, '', location.pathname);
     listen();
   }
 });

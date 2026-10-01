@@ -1,16 +1,47 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /spaces/{spaceId} {
-      allow read, update: if request.auth != null
-        && request.auth.uid in resource.data.memberUids;
-      allow create: if request.auth != null
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.memberUids == [request.auth.uid];
+      function isMember() {
+        return exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+      }
+      // Bridges the Phase A model (memberUids array on the space doc) so an
+      // already-created space keeps working until it's self-migrated to the
+      // members subcollection on next login.
+      function isLegacyMember() {
+        return 'memberUids' in resource.data && request.auth.uid in resource.data.memberUids;
+      }
+
+      allow read: if request.auth != null && (isMember() || isLegacyMember());
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null && (isMember() || isLegacyMember());
+
+      match /members/{memberId} {
+        allow read: if request.auth != null && (isMember() || isLegacyMember());
+        allow create: if request.auth != null && request.auth.uid == memberId && (
+          get(/databases/$(database)/documents/spaces/$(spaceId)).data.ownerUid == request.auth.uid
+          || isLegacyMember()
+          || ('joinedViaInvite' in request.resource.data
+              && get(/databases/$(database)/documents/spaces/$(spaceId)/invites/$(request.resource.data.joinedViaInvite)).data.active == true)
+        );
+        allow delete: if request.auth != null && request.auth.uid == memberId;
+      }
+
+      match /invites/{inviteId} {
+        allow get: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.createdBy == request.auth.uid
+          && (isMember() || isLegacyMember());
+        allow update: if request.auth != null && (isMember() || isLegacyMember());
+      }
 
       match /expenses/{expenseId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberUids;
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
       }
     }
   }
