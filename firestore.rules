@@ -43,6 +43,22 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read, write: if request.auth != null && (isMember() || isLegacyMember());
       }
+
+      match /settlements/{settlementId} {
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
+      }
+
+      match /bills/{billId} {
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
+      }
+
+      match /chores/{choreId} {
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
+      }
+
+      match /budgets/{month} {
+        allow read, write: if request.auth != null && (isMember() || isLegacyMember());
+      }
     }
   }
 }

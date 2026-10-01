@@ -14,11 +14,15 @@
   .mono { font-family:'IBM Plex Mono', monospace; }
   header { background:#fff; border-bottom:1px solid var(--line); padding:14px 16px; display:flex; align-items:center; gap:10px; }
   header h1 { margin:0; font-size:17px; font-weight:600; flex-grow:1; }
+  .tabs { display:flex; gap:4px; padding:0 16px; background:#fff; border-bottom:1px solid var(--line); overflow-x:auto; }
+  .tab { padding:11px 12px; border:none; background:none; font:inherit; font-size:13px; font-weight:500; color:var(--mute); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; }
+  .tab[aria-current=true] { color:var(--ink); border-bottom-color:var(--accent); }
   main { max-width:480px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+  .view[hidden] { display:none; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; }
   .pad { padding:14px; }
   label.lbl, legend { font-size:13px; font-weight:500; padding:0; margin-bottom:6px; display:block; }
-  input[type=text], input[type=email], input[type=password], input[type=date] {
+  input[type=text], input[type=email], input[type=password], input[type=date], input[type=number] {
     width:100%; padding:12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
   fieldset { border:none; margin:0; padding:0; }
   .stack { display:flex; flex-direction:column; gap:16px; }
@@ -32,6 +36,7 @@
   .seg button[aria-pressed=true] { background:var(--ink); color:#fff; font-weight:500; }
   .btn { padding:14px; border:none; border-radius:8px; background:var(--accent); color:#fff; font:600 15px 'IBM Plex Sans', sans-serif; min-height:50px; cursor:pointer; width:100%; }
   .btn:disabled { opacity:.6; }
+  .btn.sm { padding:9px 12px; min-height:36px; font-size:13px; width:auto; }
   .linkbtn { background:none; border:none; color:var(--accent); font:inherit; font-weight:500; cursor:pointer; padding:8px; }
   .hint { font-size:12px; color:var(--mute); margin:6px 0 0; }
   .err { color:#8A3B1C; font-size:13px; margin:0; min-height:1em; }
@@ -46,6 +51,22 @@
   .del { background:none; border:none; color:var(--mute); cursor:pointer; padding:6px; font-size:16px; }
   .settle { display:flex; flex-direction:column; gap:4px; }
   .settle .n { font:500 24px 'IBM Plex Mono', monospace; }
+  .status { display:inline-block; padding:1px 7px; border-radius:4px; font-size:11px; font-weight:500; }
+  .status-paid { background:#DCEBE8; color:#17504C; }
+  .status-due { background:#F6E4D2; color:#7A3F0E; }
+  .status-overdue { background:#F4D7D0; color:#8A3B1C; }
+  .bar { height:6px; border-radius:3px; background:#EEF0EB; overflow:hidden; margin-top:6px; }
+  .bar-fill { height:100%; background:var(--accent); }
+  .bar-fill.over { background:#B0493A; }
+  .empty { padding:14px; color:var(--mute); font-size:13px; }
+  .strip { background:#F4D7D0; border:1px solid #E3B2A6; border-radius:10px; padding:12px 14px; }
+  .strip h3 { margin:0 0 6px; font-size:13px; color:#8A3B1C; }
+  .sectionhead { display:flex; align-items:center; justify-content:space-between; padding:14px 14px 8px; }
+  .sectionhead h2 { margin:0; font-size:15px; font-weight:600; }
+  .catrow { padding:11px 14px; border-top:1px solid #EEF0EB; }
+  .catrow:first-child { border-top:none; }
+  .catrow .top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .catrow input[type=text] { width:90px; text-align:right; padding:8px; }
 </style>
 </head>
 <body>
@@ -73,6 +94,13 @@
     <button id="inviteBtn" class="linkbtn" type="button">Invite</button>
     <button id="signOut" class="linkbtn">Sign out</button>
   </header>
+  <nav class="tabs" id="tabs">
+    <button class="tab" type="button" data-view="home">Home</button>
+    <button class="tab" type="button" data-view="expenses">Expenses</button>
+    <button class="tab" type="button" data-view="bills">Bills</button>
+    <button class="tab" type="button" data-view="chores">Chores</button>
+    <button class="tab" type="button" data-view="budget">Budget</button>
+  </nav>
   <main>
     <section id="inviteCard" class="card pad stack" hidden>
       <span style="font-size:12px;color:var(--mute)">Invite link &mdash; anyone with this link can join your space</span>
@@ -83,52 +111,144 @@
       </div>
     </section>
 
-    <section class="card pad settle" aria-label="Settle up">
-      <span style="font-size:12px;color:var(--mute)">Settle up</span>
-      <span id="settleText" style="font-size:13px">&nbsp;</span>
-      <span id="settleAmt" class="n">$0.00</span>
-    </section>
-
-    <form id="form" class="card pad stack" autocomplete="off">
-      <h2 style="margin:0;font-size:15px">Add expense</h2>
-      <div>
-        <label class="lbl" for="amount" style="text-align:center">Amount</label>
-        <input id="amount" class="amt" type="text" inputmode="decimal" placeholder="$0.00">
+    <!-- Home -->
+    <div id="view-home" class="view stack" hidden>
+      <div id="overdueStrip" class="strip" hidden>
+        <h3>Overdue</h3>
+        <div id="overdueList"></div>
       </div>
-      <div><label class="lbl" for="desc">Description</label><input id="desc" type="text" placeholder="Hardware store"></div>
-      <fieldset><legend>Category</legend><div class="chips" id="cats"></div></fieldset>
-      <fieldset><legend>Paid by</legend>
-        <div class="seg" id="payer" style="grid-template-columns:repeat(2,1fr)">
-          <button type="button" data-v="J" aria-pressed="true">J</button>
-          <button type="button" data-v="P" aria-pressed="false">P</button>
-        </div>
-      </fieldset>
-      <fieldset><legend>Split</legend>
-        <div class="seg" id="split" style="grid-template-columns:repeat(3,1fr)">
-          <button type="button" data-v="half" aria-pressed="true">50 / 50</button>
-          <button type="button" data-v="custom" aria-pressed="false">Custom</button>
-          <button type="button" data-v="mine" aria-pressed="false">Just payer</button>
-        </div>
-        <div id="customWrap" hidden style="margin-top:8px">
-          <label class="lbl" for="otherShare">Other person's share ($)</label>
-          <input id="otherShare" type="text" inputmode="decimal" placeholder="0.00">
-        </div>
-        <p id="splitHint" class="hint"></p>
-      </fieldset>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
-        <div><label class="lbl" for="date">Date</label><input id="date" type="date"></div>
-        <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;min-height:46px">
-          <input id="recurring" type="checkbox" style="width:20px;height:20px;margin:0;accent-color:var(--accent)">Repeat as a bill
-        </label>
-      </div>
-      <p id="formErr" class="err" role="alert"></p>
-      <button id="saveBtn" class="btn" type="submit">Save expense</button>
-    </form>
+      <section class="card pad settle" aria-label="Settle up">
+        <span style="font-size:12px;color:var(--mute)">Settle up</span>
+        <span id="settleTextHome" style="font-size:13px">&nbsp;</span>
+        <span id="settleAmtHome" class="n">$0.00</span>
+      </section>
+      <section class="card" aria-label="This week">
+        <div class="sectionhead"><h2>This week</h2></div>
+        <div id="agendaList"></div>
+      </section>
+      <section class="card" aria-label="This month's plan">
+        <div class="sectionhead"><h2>This month</h2></div>
+        <div id="homeBudgetSummary" class="pad" style="padding-top:0"></div>
+      </section>
+    </div>
 
-    <section class="card" aria-label="Expenses">
-      <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Expenses</div>
-      <div id="list"></div>
-    </section>
+    <!-- Expenses -->
+    <div id="view-expenses" class="view stack" hidden>
+      <section class="card pad settle" aria-label="Settle up">
+        <span style="font-size:12px;color:var(--mute)">Settle up</span>
+        <span id="settleText" style="font-size:13px">&nbsp;</span>
+        <span id="settleAmt" class="n">$0.00</span>
+        <button id="settleBtn" class="btn sm" type="button" style="align-self:flex-start;margin-top:4px" hidden>Record settlement</button>
+      </section>
+
+      <form id="form" class="card pad stack" autocomplete="off">
+        <h2 style="margin:0;font-size:15px">Add expense</h2>
+        <div>
+          <label class="lbl" for="amount" style="text-align:center">Amount</label>
+          <input id="amount" class="amt" type="text" inputmode="decimal" placeholder="$0.00">
+        </div>
+        <div><label class="lbl" for="desc">Description</label><input id="desc" type="text" placeholder="Hardware store"></div>
+        <fieldset><legend>Category</legend><div class="chips" id="cats"></div></fieldset>
+        <fieldset><legend>Paid by</legend>
+          <div class="seg" id="payer" style="grid-template-columns:repeat(2,1fr)">
+            <button type="button" data-v="J" aria-pressed="true">J</button>
+            <button type="button" data-v="P" aria-pressed="false">P</button>
+          </div>
+        </fieldset>
+        <fieldset><legend>Split</legend>
+          <div class="seg" id="split" style="grid-template-columns:repeat(3,1fr)">
+            <button type="button" data-v="half" aria-pressed="true">50 / 50</button>
+            <button type="button" data-v="custom" aria-pressed="false">Custom</button>
+            <button type="button" data-v="mine" aria-pressed="false">Just payer</button>
+          </div>
+          <div id="customWrap" hidden style="margin-top:8px">
+            <label class="lbl" for="otherShare">Other person's share ($)</label>
+            <input id="otherShare" type="text" inputmode="decimal" placeholder="0.00">
+          </div>
+          <p id="splitHint" class="hint"></p>
+        </fieldset>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+          <div><label class="lbl" for="date">Date</label><input id="date" type="date"></div>
+          <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;min-height:46px">
+            <input id="recurring" type="checkbox" style="width:20px;height:20px;margin:0;accent-color:var(--accent)">Repeat as a bill
+          </label>
+        </div>
+        <p id="formErr" class="err" role="alert"></p>
+        <button id="saveBtn" class="btn" type="submit">Save expense</button>
+      </form>
+
+      <section class="card" aria-label="Expenses">
+        <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Expenses</div>
+        <div id="list"></div>
+      </section>
+    </div>
+
+    <!-- Bills -->
+    <div id="view-bills" class="view stack" hidden>
+      <form id="billForm" class="card pad stack" autocomplete="off">
+        <h2 style="margin:0;font-size:15px">Add bill</h2>
+        <div><label class="lbl" for="billName">Name</label><input id="billName" type="text" placeholder="Internet"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><label class="lbl" for="billAmount">Amount ($)</label><input id="billAmount" type="text" inputmode="decimal" placeholder="0.00"></div>
+          <div><label class="lbl" for="billDueDay">Due day of month</label><input id="billDueDay" type="number" min="1" max="31" placeholder="15"></div>
+        </div>
+        <fieldset><legend>Category</legend><div class="chips" id="billCats"></div></fieldset>
+        <fieldset><legend>Assigned to</legend>
+          <div class="seg" id="billAssigned" style="grid-template-columns:repeat(2,1fr)">
+            <button type="button" data-v="J" aria-pressed="true">J</button>
+            <button type="button" data-v="P" aria-pressed="false">P</button>
+          </div>
+        </fieldset>
+        <p id="billErr" class="err" role="alert"></p>
+        <button id="billSaveBtn" class="btn" type="submit">Save bill</button>
+      </form>
+      <section class="card" aria-label="Bills">
+        <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Bills</div>
+        <div id="billList"></div>
+      </section>
+    </div>
+
+    <!-- Chores -->
+    <div id="view-chores" class="view stack" hidden>
+      <form id="choreForm" class="card pad stack" autocomplete="off">
+        <h2 style="margin:0;font-size:15px">Add chore</h2>
+        <div><label class="lbl" for="choreName">Name</label><input id="choreName" type="text" placeholder="Take out bins"></div>
+        <fieldset><legend>Assigned to</legend>
+          <div class="seg" id="choreAssigned" style="grid-template-columns:repeat(2,1fr)">
+            <button type="button" data-v="J" aria-pressed="true">J</button>
+            <button type="button" data-v="P" aria-pressed="false">P</button>
+          </div>
+        </fieldset>
+        <fieldset><legend>Repeats</legend>
+          <div class="seg" id="choreRecurrence" style="grid-template-columns:repeat(2,1fr)">
+            <button type="button" data-v="rolling" aria-pressed="true">Every N days</button>
+            <button type="button" data-v="weekly" aria-pressed="false">Weekly</button>
+          </div>
+        </fieldset>
+        <div id="choreRollingWrap">
+          <label class="lbl" for="choreInterval">Every how many days</label>
+          <input id="choreInterval" type="number" min="1" placeholder="7">
+        </div>
+        <div id="choreWeeklyWrap" hidden>
+          <label class="lbl">Which day</label>
+          <div class="chips" id="choreWeekday"></div>
+        </div>
+        <p id="choreErr" class="err" role="alert"></p>
+        <button id="choreSaveBtn" class="btn" type="submit">Save chore</button>
+      </form>
+      <section class="card" aria-label="Chores">
+        <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Chores</div>
+        <div id="choreList"></div>
+      </section>
+    </div>
+
+    <!-- Budget -->
+    <div id="view-budget" class="view stack" hidden>
+      <section class="card" aria-label="Monthly budget">
+        <div class="sectionhead"><h2 id="budgetMonthLabel">This month</h2></div>
+        <div id="budgetList"></div>
+      </section>
+    </div>
   </main>
 </section>
 
@@ -154,9 +274,17 @@ const db = getFirestore(app);
 
 const BIG_CENTS = 20000; // $200 flagged as "big"
 const CATS = ['Housing', 'Groceries', 'Bills & utilities', 'Eating out', 'Transport', 'Other'];
+const WEEKDAYS = [{ l: 'Mon', v: 1 }, { l: 'Tue', v: 2 }, { l: 'Wed', v: 3 }, { l: 'Thu', v: 4 }, { l: 'Fri', v: 5 }, { l: 'Sat', v: 6 }, { l: 'Sun', v: 0 }];
 const $ = (id) => document.getElementById(id);
 
-const state = { cat: 'Other', payer: 'J', split: 'half', unsub: null, spaceId: null };
+const state = {
+  cat: 'Other', payer: 'J', split: 'half',
+  billCat: 'Other', billAssigned: 'J',
+  choreAssigned: 'J', choreRecurrence: 'rolling', choreWeekday: 1,
+  spaceId: null, view: 'home',
+  expenses: [], settlements: [], bills: [], chores: [], budget: { categories: {} },
+  unsubExpenses: null, unsubSettlements: null, unsubBills: null, unsubChores: null, unsubBudget: null
+};
 let currentInviteId = null;
 
 function getInviteParamsFromURL() {
@@ -178,6 +306,34 @@ function todayISO() {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
+function addDaysISO(iso, n) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+function daysUntil(iso) {
+  const a = new Date(todayISO() + 'T00:00:00');
+  const b = new Date(iso + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+function currentYYYYMM() { return todayISO().slice(0, 7); }
+function nextWeekdayOnOrAfter(iso, weekday) {
+  let d = iso;
+  for (let i = 0; i < 7; i++) {
+    const dow = new Date(d + 'T00:00:00').getDay();
+    if (dow === weekday) return d;
+    d = addDaysISO(d, 1);
+  }
+  return d;
+}
+function dueDateThisPeriod(dueDay) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const day = Math.min(dueDay, daysInMonth);
+  const d = new Date(y, m, day);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
 const other = (p) => (p === 'J' ? 'P' : 'J');
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -188,8 +344,34 @@ function owedToPayer(e) {
   if (e.split === 'custom') return Math.min(e.otherShareCents || 0, e.amountCents);
   return Math.round(e.amountCents / 2);
 }
+function netBalance() {
+  // net > 0 means P owes J
+  let net = 0;
+  state.expenses.forEach((e) => {
+    const owed = owedToPayer(e);
+    net += e.paidBy === 'J' ? owed : -owed;
+  });
+  state.settlements.forEach((s) => {
+    net += s.paidBy === 'J' ? s.amountCents : -s.amountCents;
+  });
+  return net;
+}
 
-// ---------- form UI ----------
+// ---------- nav ----------
+function setView(view) {
+  state.view = view;
+  document.querySelectorAll('.view').forEach((el) => { el.hidden = el.id !== `view-${view}`; });
+  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-current', String(b.dataset.view === view)));
+  $('inviteCard').hidden = true;
+  if (view === 'home') renderHome();
+  if (view === 'budget') renderBudget();
+}
+$('tabs').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.tab');
+  if (btn) setView(btn.dataset.view);
+});
+
+// ---------- expense form UI ----------
 function buildCats() {
   $('cats').innerHTML = '';
   CATS.forEach((c) => {
@@ -225,6 +407,38 @@ segment('split', 'split', updateSplitHint);
 $('amount').addEventListener('input', updateSplitHint);
 $('date').value = todayISO();
 updateSplitHint();
+
+// ---------- bill form UI ----------
+function buildBillCats() {
+  $('billCats').innerHTML = '';
+  CATS.forEach((c) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = c;
+    b.setAttribute('aria-pressed', String(c === state.billCat));
+    b.onclick = () => { state.billCat = c; buildBillCats(); };
+    $('billCats').appendChild(b);
+  });
+}
+buildBillCats();
+segment('billAssigned', 'billAssigned');
+
+// ---------- chore form UI ----------
+function buildWeekdayChips() {
+  $('choreWeekday').innerHTML = '';
+  WEEKDAYS.forEach((w) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = w.l;
+    b.setAttribute('aria-pressed', String(w.v === state.choreWeekday));
+    b.onclick = () => { state.choreWeekday = w.v; buildWeekdayChips(); };
+    $('choreWeekday').appendChild(b);
+  });
+}
+buildWeekdayChips();
+segment('choreAssigned', 'choreAssigned');
+segment('choreRecurrence', 'choreRecurrence', () => {
+  $('choreRollingWrap').hidden = state.choreRecurrence !== 'rolling';
+  $('choreWeeklyWrap').hidden = state.choreRecurrence !== 'weekly';
+});
 
 // ---------- auth ----------
 // The signup toggle only appears when arriving via an invite link; there is
@@ -352,22 +566,29 @@ $('revokeInviteBtn').onclick = async () => {
 onAuthStateChanged(auth, async (user) => {
   $('login').hidden = !!user;
   $('app').hidden = !user;
-  if (state.unsub) { state.unsub(); state.unsub = null; }
+  [state.unsubExpenses, state.unsubSettlements, state.unsubBills, state.unsubChores, state.unsubBudget].forEach((u) => u && u());
   if (user) {
     state.spaceId = await resolveSpace(user);
     if (inviteParams) history.replaceState(null, '', location.pathname);
-    listen();
+    listenExpenses();
+    listenSettlements();
+    listenBills();
+    listenChores();
+    listenBudget();
+    setView('home');
   }
 });
 
-// ---------- live data ----------
-function listen() {
+// ---------- live data: expenses ----------
+function listenExpenses() {
   const q = query(collection(db, 'spaces', state.spaceId, 'expenses'), orderBy('date', 'desc'), orderBy('createdAt', 'desc'));
-  state.unsub = onSnapshot(q, (snap) => {
+  state.unsubExpenses = onSnapshot(q, (snap) => {
     $('syncDot').style.background = '#2E7D4F';
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderList(items);
-    renderSettle(items);
+    state.expenses = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderList(state.expenses);
+    renderSettle();
+    if (state.view === 'home') renderHome();
+    if (state.view === 'budget') renderBudget();
   }, (err) => {
     console.error(err);
     $('syncDot').style.background = '#8A3B1C';
@@ -392,19 +613,40 @@ function renderList(items) {
     };
   });
 }
-function renderSettle(items) {
-  // net > 0 means P owes J
-  let net = 0;
-  items.forEach((e) => {
-    const owed = owedToPayer(e);
-    net += e.paidBy === 'J' ? owed : -owed;
-  });
-  if (net === 0) { $('settleText').textContent = 'All square'; $('settleAmt').textContent = fmt(0); return; }
-  $('settleText').textContent = net > 0 ? 'P owes J' : 'J owes P';
-  $('settleAmt').textContent = fmt(Math.abs(net));
+function renderSettle() {
+  const net = netBalance();
+  const text = net === 0 ? 'All square' : (net > 0 ? 'P owes J' : 'J owes P');
+  const amt = fmt(Math.abs(net));
+  $('settleText').textContent = text;
+  $('settleAmt').textContent = amt;
+  $('settleTextHome').textContent = text;
+  $('settleAmtHome').textContent = amt;
+  $('settleBtn').hidden = net === 0;
+  $('settleBtn').textContent = net === 0 ? 'Record settlement' : `Record ${net > 0 ? 'P' : 'J'} paid ${fmt(Math.abs(net))}`;
 }
+$('settleBtn').onclick = async () => {
+  const net = netBalance();
+  if (net === 0) return;
+  const payer = net > 0 ? 'P' : 'J';
+  if (!confirm(`Record that ${payer} paid ${fmt(Math.abs(net))} to settle up?`)) return;
+  $('settleBtn').disabled = true;
+  try {
+    await addDoc(collection(db, 'spaces', state.spaceId, 'settlements'), {
+      paidBy: payer,
+      amountCents: Math.abs(net),
+      date: todayISO(),
+      createdAt: serverTimestamp(),
+      createdBy: auth.currentUser.uid
+    });
+  } catch (e) {
+    console.error(e);
+    alert('Could not record the settlement.');
+  } finally {
+    $('settleBtn').disabled = false;
+  }
+};
 
-// ---------- save ----------
+// ---------- save expense ----------
 $('form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   $('formErr').textContent = '';
@@ -444,6 +686,272 @@ $('form').addEventListener('submit', async (ev) => {
     $('saveBtn').disabled = false;
   }
 });
+
+// ---------- live data: settlements ----------
+function listenSettlements() {
+  const q = query(collection(db, 'spaces', state.spaceId, 'settlements'), orderBy('date', 'desc'));
+  state.unsubSettlements = onSnapshot(q, (snap) => {
+    state.settlements = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderSettle();
+    if (state.view === 'home') renderHome();
+  });
+}
+
+// ---------- bills ----------
+function listenBills() {
+  const q = query(collection(db, 'spaces', state.spaceId, 'bills'), orderBy('dueDay', 'asc'));
+  state.unsubBills = onSnapshot(q, (snap) => {
+    state.bills = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderBills();
+    if (state.view === 'home') renderHome();
+  });
+}
+function billStatus(bill) {
+  const due = dueDateThisPeriod(bill.dueDay);
+  if (bill.lastPaidPeriod === currentYYYYMM()) return { label: 'Paid', cls: 'status-paid', due };
+  const d = daysUntil(due);
+  if (d < 0) return { label: 'Overdue', cls: 'status-overdue', due };
+  if (d === 0) return { label: 'Due today', cls: 'status-due', due };
+  return { label: `Due in ${d}d`, cls: 'status-due', due };
+}
+function renderBills() {
+  const el = $('billList');
+  if (!state.bills.length) { el.innerHTML = '<div class="empty">No bills yet.</div>'; return; }
+  el.innerHTML = state.bills.map((b) => {
+    const s = billStatus(b);
+    return `
+    <div class="row">
+      <div class="grow">
+        <div>${esc(b.name)}</div>
+        <div class="sub">${esc(b.category)} · due day ${esc(b.dueDay)} · <span class="status ${s.cls}">${s.label}</span></div>
+      </div>
+      <span class="who ${esc(b.assignedTo)}">${esc(b.assignedTo)}</span>
+      <span class="mono" style="min-width:76px;text-align:right">${fmt(b.amountCents)}</span>
+      ${s.label !== 'Paid' ? `<button class="linkbtn pay" data-id="${esc(b.id)}" style="padding:4px">Mark paid</button>` : ''}
+      <button class="del" data-id="${esc(b.id)}" aria-label="Delete ${esc(b.name)}">&times;</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.pay').forEach((btn) => {
+    btn.onclick = async () => {
+      const bill = state.bills.find((b) => b.id === btn.dataset.id);
+      if (!bill) return;
+      const period = currentYYYYMM();
+      await updateDoc(doc(db, 'spaces', state.spaceId, 'bills', bill.id), { lastPaidPeriod: period });
+      await addDoc(collection(db, 'spaces', state.spaceId, 'expenses'), {
+        amountCents: bill.amountCents,
+        description: bill.name,
+        category: bill.category,
+        paidBy: bill.assignedTo,
+        split: 'half',
+        otherShareCents: 0,
+        date: todayISO(),
+        recurring: true,
+        isBig: bill.amountCents >= BIG_CENTS,
+        source: 'bill',
+        billId: bill.id,
+        createdBy: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+      });
+    };
+  });
+  el.querySelectorAll('.del').forEach((btn) => {
+    btn.onclick = async () => {
+      if (confirm('Delete this bill?')) await deleteDoc(doc(db, 'spaces', state.spaceId, 'bills', btn.dataset.id));
+    };
+  });
+}
+$('billForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('billErr').textContent = '';
+  const name = $('billName').value.trim();
+  const amountCents = parseMoney($('billAmount').value);
+  const dueDay = parseInt($('billDueDay').value, 10);
+  if (!name) { $('billErr').textContent = 'Name the bill.'; return; }
+  if (!(amountCents > 0)) { $('billErr').textContent = 'Enter an amount.'; return; }
+  if (!(dueDay >= 1 && dueDay <= 31)) { $('billErr').textContent = 'Due day must be 1-31.'; return; }
+  $('billSaveBtn').disabled = true;
+  try {
+    await addDoc(collection(db, 'spaces', state.spaceId, 'bills'), {
+      name, amountCents, dueDay,
+      category: state.billCat,
+      assignedTo: state.billAssigned,
+      lastPaidPeriod: null,
+      createdAt: serverTimestamp()
+    });
+    $('billName').value = ''; $('billAmount').value = ''; $('billDueDay').value = '';
+  } catch (e) {
+    console.error(e);
+    $('billErr').textContent = 'Could not save. Try again.';
+  } finally {
+    $('billSaveBtn').disabled = false;
+  }
+});
+
+// ---------- chores ----------
+function listenChores() {
+  const q = query(collection(db, 'spaces', state.spaceId, 'chores'), orderBy('nextDue', 'asc'));
+  state.unsubChores = onSnapshot(q, (snap) => {
+    state.chores = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderChores();
+    if (state.view === 'home') renderHome();
+  });
+}
+function choreStatusLabel(c) {
+  const d = daysUntil(c.nextDue);
+  if (d < 0) return { label: 'Overdue', cls: 'status-overdue' };
+  if (d === 0) return { label: 'Due today', cls: 'status-due' };
+  return { label: `Due in ${d}d`, cls: 'status-due' };
+}
+function renderChores() {
+  const el = $('choreList');
+  if (!state.chores.length) { el.innerHTML = '<div class="empty">No chores yet.</div>'; return; }
+  el.innerHTML = state.chores.map((c) => {
+    const s = choreStatusLabel(c);
+    const rec = c.recurrence === 'rolling' ? `every ${c.intervalDays}d` : `weekly (${WEEKDAYS.find((w) => w.v === c.weekday)?.l || ''})`;
+    return `
+    <div class="row">
+      <div class="grow">
+        <div>${esc(c.name)}</div>
+        <div class="sub">${esc(rec)} · <span class="status ${s.cls}">${s.label}</span></div>
+      </div>
+      <span class="who ${esc(c.assignedTo)}">${esc(c.assignedTo)}</span>
+      <button class="linkbtn done" data-id="${esc(c.id)}" style="padding:4px">Mark done</button>
+      <button class="del" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">&times;</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.done').forEach((btn) => {
+    btn.onclick = async () => {
+      const c = state.chores.find((x) => x.id === btn.dataset.id);
+      if (!c) return;
+      const today = todayISO();
+      const nextDue = c.recurrence === 'rolling'
+        ? addDaysISO(today, c.intervalDays)
+        : nextWeekdayOnOrAfter(addDaysISO(today, 1), c.weekday);
+      await updateDoc(doc(db, 'spaces', state.spaceId, 'chores', c.id), { lastDone: today, nextDue });
+    };
+  });
+  el.querySelectorAll('.del').forEach((btn) => {
+    btn.onclick = async () => {
+      if (confirm('Delete this chore?')) await deleteDoc(doc(db, 'spaces', state.spaceId, 'chores', btn.dataset.id));
+    };
+  });
+}
+$('choreForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('choreErr').textContent = '';
+  const name = $('choreName').value.trim();
+  if (!name) { $('choreErr').textContent = 'Name the chore.'; return; }
+  let intervalDays = null, weekday = null, nextDue;
+  const today = todayISO();
+  if (state.choreRecurrence === 'rolling') {
+    intervalDays = parseInt($('choreInterval').value, 10);
+    if (!(intervalDays > 0)) { $('choreErr').textContent = 'Enter how many days between repeats.'; return; }
+    nextDue = addDaysISO(today, intervalDays);
+  } else {
+    weekday = state.choreWeekday;
+    nextDue = nextWeekdayOnOrAfter(today, weekday);
+  }
+  $('choreSaveBtn').disabled = true;
+  try {
+    await addDoc(collection(db, 'spaces', state.spaceId, 'chores'), {
+      name,
+      assignedTo: state.choreAssigned,
+      recurrence: state.choreRecurrence,
+      intervalDays, weekday,
+      lastDone: null, nextDue,
+      createdAt: serverTimestamp()
+    });
+    $('choreName').value = ''; $('choreInterval').value = '';
+  } catch (e) {
+    console.error(e);
+    $('choreErr').textContent = 'Could not save. Try again.';
+  } finally {
+    $('choreSaveBtn').disabled = false;
+  }
+});
+
+// ---------- budget ----------
+function listenBudget() {
+  const month = currentYYYYMM();
+  $('budgetMonthLabel').textContent = new Date(month + '-01T00:00:00').toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+  state.unsubBudget = onSnapshot(doc(db, 'spaces', state.spaceId, 'budgets', month), (snap) => {
+    state.budget = snap.exists() ? snap.data() : { categories: {} };
+    renderBudget();
+    if (state.view === 'home') renderHome();
+  });
+}
+function actualByCategory() {
+  const month = currentYYYYMM();
+  const totals = {};
+  state.expenses.filter((e) => e.date && e.date.startsWith(month)).forEach((e) => {
+    totals[e.category] = (totals[e.category] || 0) + e.amountCents;
+  });
+  return totals;
+}
+function renderBudget() {
+  const planned = state.budget.categories || {};
+  const actual = actualByCategory();
+  const el = $('budgetList');
+  el.innerHTML = CATS.map((cat) => {
+    const plannedCents = planned[cat] || 0;
+    const actualCents = actual[cat] || 0;
+    const pct = plannedCents > 0 ? Math.min(100, Math.round((actualCents / plannedCents) * 100)) : 0;
+    const over = plannedCents > 0 && actualCents > plannedCents;
+    return `
+    <div class="catrow">
+      <div class="top">
+        <div>
+          <div style="font-weight:500">${esc(cat)}</div>
+          <div class="sub">${fmt(actualCents)} of <input type="text" class="mono budget-input" data-cat="${esc(cat)}" inputmode="decimal" value="${plannedCents ? (plannedCents / 100).toFixed(2) : ''}" placeholder="0.00"></div>
+        </div>
+      </div>
+      <div class="bar"><div class="bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.budget-input').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const cents = parseMoney(input.value) || 0;
+      const month = currentYYYYMM();
+      await setDoc(doc(db, 'spaces', state.spaceId, 'budgets', month), { categories: { [input.dataset.cat]: cents } }, { merge: true });
+    });
+  });
+}
+
+// ---------- home ----------
+function renderHome() {
+  const overdueBills = state.bills.filter((b) => billStatus(b).label === 'Overdue');
+  const overdueChores = state.chores.filter((c) => daysUntil(c.nextDue) < 0);
+  const overdueCount = overdueBills.length + overdueChores.length;
+  $('overdueStrip').hidden = overdueCount === 0;
+  $('overdueList').innerHTML = [
+    ...overdueBills.map((b) => `<div class="sub">${esc(b.name)} &mdash; ${fmt(b.amountCents)} (${esc(b.assignedTo)})</div>`),
+    ...overdueChores.map((c) => `<div class="sub">${esc(c.name)} &mdash; chore (${esc(c.assignedTo)})</div>`)
+  ].join('');
+
+  const weekBills = state.bills.filter((b) => { const d = daysUntil(billStatus(b).due); return d >= 0 && d <= 7 && billStatus(b).label !== 'Paid'; })
+    .map((b) => ({ type: 'Bill', name: b.name, date: billStatus(b).due, who: b.assignedTo, amt: fmt(b.amountCents) }));
+  const weekChores = state.chores.filter((c) => { const d = daysUntil(c.nextDue); return d >= 0 && d <= 7; })
+    .map((c) => ({ type: 'Chore', name: c.name, date: c.nextDue, who: c.assignedTo, amt: '' }));
+  const agenda = [...weekBills, ...weekChores].sort((a, b) => a.date.localeCompare(b.date));
+  $('agendaList').innerHTML = agenda.length ? agenda.map((a) => `
+    <div class="row">
+      <div class="grow">
+        <div>${esc(a.name)}</div>
+        <div class="sub">${esc(a.type)} · ${esc(a.date)}</div>
+      </div>
+      <span class="who ${esc(a.who)}">${esc(a.who)}</span>
+      ${a.amt ? `<span class="mono" style="min-width:60px;text-align:right">${a.amt}</span>` : ''}
+    </div>`).join('') : '<div class="empty">Nothing due this week.</div>';
+
+  const planned = state.budget.categories || {};
+  const actual = actualByCategory();
+  const totalPlanned = Object.values(planned).reduce((a, b) => a + b, 0);
+  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
+  $('homeBudgetSummary').innerHTML = totalPlanned > 0
+    ? `<div class="sub">Spent ${fmt(totalActual)} of ${fmt(totalPlanned)} planned</div>
+       <div class="bar"><div class="bar-fill ${totalActual > totalPlanned ? 'over' : ''}" style="width:${Math.min(100, Math.round((totalActual / totalPlanned) * 100))}%"></div></div>`
+    : `<div class="sub">No budget set for this month yet &mdash; set one in the Budget tab.</div>`;
+}
 </script>
 </body>
 </html>
