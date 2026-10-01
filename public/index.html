@@ -59,6 +59,7 @@
       <div><label class="lbl" for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"></div>
       <p id="loginErr" class="err" role="alert"></p>
       <button id="loginBtn" class="btn">Sign in</button>
+      <button id="toggleMode" class="linkbtn" type="button">Need an account? Create one</button>
     </div>
   </main>
 </section>
@@ -122,9 +123,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp }
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, limit, getDocs, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -144,7 +145,8 @@ const BIG_CENTS = 20000; // $200 flagged as "big"
 const CATS = ['Housing', 'Groceries', 'Bills & utilities', 'Eating out', 'Transport', 'Other'];
 const $ = (id) => document.getElementById(id);
 
-const state = { cat: 'Other', payer: 'J', split: 'half', unsub: null };
+const state = { cat: 'Other', payer: 'J', split: 'half', unsub: null, spaceId: null };
+let authMode = 'signin';
 
 // ---------- helpers ----------
 const fmt = (cents) => (cents / 100).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
@@ -205,27 +207,61 @@ $('date').value = todayISO();
 updateSplitHint();
 
 // ---------- auth ----------
+$('toggleMode').onclick = () => {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  $('loginBtn').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  $('toggleMode').textContent = authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
+  $('loginErr').textContent = '';
+};
 $('loginBtn').onclick = async () => {
   $('loginErr').textContent = '';
+  const email = $('email').value.trim();
+  const pw = $('pw').value;
   try {
-    await signInWithEmailAndPassword(auth, $('email').value.trim(), $('pw').value);
+    if (authMode === 'signup') {
+      await createUserWithEmailAndPassword(auth, email, pw);
+    } else {
+      await signInWithEmailAndPassword(auth, email, pw);
+    }
   } catch (e) {
-    $('loginErr').textContent = 'Could not sign in. Check your email and password.';
+    $('loginErr').textContent = authMode === 'signup'
+      ? 'Could not create account. Use a real email and a password of at least 6 characters.'
+      : 'Could not sign in. Check your email and password.';
   }
 };
 $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
 $('signOut').onclick = () => signOut(auth);
 
-onAuthStateChanged(auth, (user) => {
+// ---------- space ----------
+async function ensureSpace(user) {
+  const q = query(collection(db, 'spaces'), where('memberUids', 'array-contains', user.uid), limit(1));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    state.spaceId = snap.docs[0].id;
+    return;
+  }
+  const ref = await addDoc(collection(db, 'spaces'), {
+    name: 'Household',
+    ownerUid: user.uid,
+    memberUids: [user.uid],
+    createdAt: serverTimestamp()
+  });
+  state.spaceId = ref.id;
+}
+
+onAuthStateChanged(auth, async (user) => {
   $('login').hidden = !!user;
   $('app').hidden = !user;
   if (state.unsub) { state.unsub(); state.unsub = null; }
-  if (user) listen();
+  if (user) {
+    await ensureSpace(user);
+    listen();
+  }
 });
 
 // ---------- live data ----------
 function listen() {
-  const q = query(collection(db, 'expenses'), orderBy('date', 'desc'), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'spaces', state.spaceId, 'expenses'), orderBy('date', 'desc'), orderBy('createdAt', 'desc'));
   state.unsub = onSnapshot(q, (snap) => {
     $('syncDot').style.background = '#2E7D4F';
     const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -251,7 +287,7 @@ function renderList(items) {
     </div>`).join('');
   el.querySelectorAll('.del').forEach((b) => {
     b.onclick = async () => {
-      if (confirm('Delete this expense?')) await deleteDoc(doc(db, 'expenses', b.dataset.id));
+      if (confirm('Delete this expense?')) await deleteDoc(doc(db, 'spaces', state.spaceId, 'expenses', b.dataset.id));
     };
   });
 }
@@ -284,7 +320,7 @@ $('form').addEventListener('submit', async (ev) => {
   }
   $('saveBtn').disabled = true;
   try {
-    await addDoc(collection(db, 'expenses'), {
+    await addDoc(collection(db, 'spaces', state.spaceId, 'expenses'), {
       amountCents, description,
       category: state.cat,
       paidBy: state.payer,
