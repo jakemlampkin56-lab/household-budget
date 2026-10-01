@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Household</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#1B1E1C; --mute:#5B615D; --line:#DADDD6; --bg:#F3F4F1; --card:#FFFFFF; --accent:#1F5F5B; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px 'IBM Plex Sans', system-ui, sans-serif; }
+  [hidden] { display:none !important; }
+  .mono { font-family:'IBM Plex Mono', monospace; }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:14px 16px; display:flex; align-items:center; gap:10px; }
+  header h1 { margin:0; font-size:17px; font-weight:600; flex-grow:1; }
+  main { max-width:480px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .pad { padding:14px; }
+  label.lbl, legend { font-size:13px; font-weight:500; padding:0; margin-bottom:6px; display:block; }
+  input[type=text], input[type=email], input[type=password], input[type=date] {
+    width:100%; padding:12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  fieldset { border:none; margin:0; padding:0; }
+  .stack { display:flex; flex-direction:column; gap:16px; }
+  .amt { text-align:center; font:500 38px 'IBM Plex Mono', monospace; border:none !important; background:transparent !important; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:9px 14px; min-height:40px; border-radius:20px; border:1px solid var(--line); background:#fff; font:inherit; font-size:13px; cursor:pointer; }
+  .chip[aria-pressed=true] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .seg { display:grid; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button { padding:12px 4px; border:none; border-left:1px solid var(--line); background:#fff; font:inherit; cursor:pointer; }
+  .seg button:first-child { border-left:none; }
+  .seg button[aria-pressed=true] { background:var(--ink); color:#fff; font-weight:500; }
+  .btn { padding:14px; border:none; border-radius:8px; background:var(--accent); color:#fff; font:600 15px 'IBM Plex Sans', sans-serif; min-height:50px; cursor:pointer; width:100%; }
+  .btn:disabled { opacity:.6; }
+  .linkbtn { background:none; border:none; color:var(--accent); font:inherit; font-weight:500; cursor:pointer; padding:8px; }
+  .hint { font-size:12px; color:var(--mute); margin:6px 0 0; }
+  .err { color:#8A3B1C; font-size:13px; margin:0; min-height:1em; }
+  .row { display:flex; align-items:center; gap:10px; padding:11px 14px; border-top:1px solid #EEF0EB; }
+  .row:first-child { border-top:none; }
+  .row .grow { flex-grow:1; min-width:0; }
+  .row .sub { font-size:12px; color:var(--mute); }
+  .who { padding:1px 6px; border-radius:4px; font-size:12px; font-weight:500; }
+  .who.J { background:#DCEBE8; color:#17504C; }
+  .who.P { background:#F6E4D2; color:#7A3F0E; }
+  .big { font-size:11px; padding:1px 5px; border-radius:4px; background:#E7E6F2; color:#3E3A6B; margin-left:6px; }
+  .del { background:none; border:none; color:var(--mute); cursor:pointer; padding:6px; font-size:16px; }
+  .settle { display:flex; flex-direction:column; gap:4px; }
+  .settle .n { font:500 24px 'IBM Plex Mono', monospace; }
+</style>
+</head>
+<body>
+
+<!-- Sign in -->
+<section id="login" hidden>
+  <main>
+    <div class="card pad stack">
+      <h1 style="margin:0;font-size:20px">Household</h1>
+      <div><label class="lbl" for="email">Email</label><input id="email" type="email" autocomplete="username"></div>
+      <div><label class="lbl" for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"></div>
+      <p id="loginErr" class="err" role="alert"></p>
+      <button id="loginBtn" class="btn">Sign in</button>
+    </div>
+  </main>
+</section>
+
+<!-- App -->
+<section id="app" hidden>
+  <header>
+    <h1>Household</h1>
+    <span id="syncDot" title="Live" style="width:8px;height:8px;border-radius:50%;background:#2E7D4F"></span>
+    <button id="signOut" class="linkbtn">Sign out</button>
+  </header>
+  <main>
+    <section class="card pad settle" aria-label="Settle up">
+      <span style="font-size:12px;color:var(--mute)">Settle up</span>
+      <span id="settleText" style="font-size:13px">&nbsp;</span>
+      <span id="settleAmt" class="n">$0.00</span>
+    </section>
+
+    <form id="form" class="card pad stack" autocomplete="off">
+      <h2 style="margin:0;font-size:15px">Add expense</h2>
+      <div>
+        <label class="lbl" for="amount" style="text-align:center">Amount</label>
+        <input id="amount" class="amt" type="text" inputmode="decimal" placeholder="$0.00">
+      </div>
+      <div><label class="lbl" for="desc">Description</label><input id="desc" type="text" placeholder="Hardware store"></div>
+      <fieldset><legend>Category</legend><div class="chips" id="cats"></div></fieldset>
+      <fieldset><legend>Paid by</legend>
+        <div class="seg" id="payer" style="grid-template-columns:repeat(2,1fr)">
+          <button type="button" data-v="J" aria-pressed="true">J</button>
+          <button type="button" data-v="P" aria-pressed="false">P</button>
+        </div>
+      </fieldset>
+      <fieldset><legend>Split</legend>
+        <div class="seg" id="split" style="grid-template-columns:repeat(3,1fr)">
+          <button type="button" data-v="half" aria-pressed="true">50 / 50</button>
+          <button type="button" data-v="custom" aria-pressed="false">Custom</button>
+          <button type="button" data-v="mine" aria-pressed="false">Just payer</button>
+        </div>
+        <div id="customWrap" hidden style="margin-top:8px">
+          <label class="lbl" for="otherShare">Other person's share ($)</label>
+          <input id="otherShare" type="text" inputmode="decimal" placeholder="0.00">
+        </div>
+        <p id="splitHint" class="hint"></p>
+      </fieldset>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+        <div><label class="lbl" for="date">Date</label><input id="date" type="date"></div>
+        <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;min-height:46px">
+          <input id="recurring" type="checkbox" style="width:20px;height:20px;margin:0;accent-color:var(--accent)">Repeat as a bill
+        </label>
+      </div>
+      <p id="formErr" class="err" role="alert"></p>
+      <button id="saveBtn" class="btn" type="submit">Save expense</button>
+    </form>
+
+    <section class="card" aria-label="Expenses">
+      <div class="pad" style="padding-bottom:8px;font-weight:600;font-size:15px">Expenses</div>
+      <div id="list"></div>
+    </section>
+  </main>
+</section>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCp87LvhrriHkhL0LVOgBvfgzLgTnEMWIw",
+  authDomain: "homebudget-56acc.firebaseapp.com",
+  projectId: "homebudget-56acc",
+  storageBucket: "homebudget-56acc.firebasestorage.app",
+  messagingSenderId: "1056599465636",
+  appId: "1:1056599465636:web:f742a9997007890dae5031"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const BIG_CENTS = 20000; // $200 flagged as "big"
+const CATS = ['Housing', 'Groceries', 'Bills & utilities', 'Eating out', 'Transport', 'Other'];
+const $ = (id) => document.getElementById(id);
+
+const state = { cat: 'Other', payer: 'J', split: 'half', unsub: null };
+
+// ---------- helpers ----------
+const fmt = (cents) => (cents / 100).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
+function parseMoney(s) {
+  const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
+  return isFinite(n) ? Math.round(n * 100) : NaN;
+}
+function todayISO() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+const other = (p) => (p === 'J' ? 'P' : 'J');
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// Amount (cents) the non-paying person owes the payer for an expense
+function owedToPayer(e) {
+  if (e.split === 'mine') return 0;
+  if (e.split === 'custom') return Math.min(e.otherShareCents || 0, e.amountCents);
+  return Math.round(e.amountCents / 2);
+}
+
+// ---------- form UI ----------
+function buildCats() {
+  $('cats').innerHTML = '';
+  CATS.forEach((c) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = c;
+    b.setAttribute('aria-pressed', String(c === state.cat));
+    b.onclick = () => { state.cat = c; buildCats(); };
+    $('cats').appendChild(b);
+  });
+}
+function segment(id, key, after) {
+  $(id).querySelectorAll('button').forEach((b) => {
+    b.onclick = () => {
+      state[key] = b.dataset.v;
+      $(id).querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      after && after();
+    };
+  });
+}
+function updateSplitHint() {
+  $('customWrap').hidden = state.split !== 'custom';
+  const amt = parseMoney($('amount').value);
+  const o = other(state.payer);
+  let t = '';
+  if (state.split === 'half') t = isNaN(amt) ? `${o} owes half.` : `${o}'s share ${fmt(Math.round(amt / 2))} goes onto settle-up.`;
+  else if (state.split === 'mine') t = 'Nothing goes onto settle-up.';
+  else t = `${o}'s share goes onto settle-up.`;
+  $('splitHint').textContent = t;
+}
+buildCats();
+segment('payer', 'payer', updateSplitHint);
+segment('split', 'split', updateSplitHint);
+$('amount').addEventListener('input', updateSplitHint);
+$('date').value = todayISO();
+updateSplitHint();
+
+// ---------- auth ----------
+$('loginBtn').onclick = async () => {
+  $('loginErr').textContent = '';
+  try {
+    await signInWithEmailAndPassword(auth, $('email').value.trim(), $('pw').value);
+  } catch (e) {
+    $('loginErr').textContent = 'Could not sign in. Check your email and password.';
+  }
+};
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+$('signOut').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, (user) => {
+  $('login').hidden = !!user;
+  $('app').hidden = !user;
+  if (state.unsub) { state.unsub(); state.unsub = null; }
+  if (user) listen();
+});
+
+// ---------- live data ----------
+function listen() {
+  const q = query(collection(db, 'expenses'), orderBy('date', 'desc'), orderBy('createdAt', 'desc'));
+  state.unsub = onSnapshot(q, (snap) => {
+    $('syncDot').style.background = '#2E7D4F';
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderList(items);
+    renderSettle(items);
+  }, (err) => {
+    console.error(err);
+    $('syncDot').style.background = '#8A3B1C';
+  });
+}
+function renderList(items) {
+  const el = $('list');
+  if (!items.length) { el.innerHTML = '<div class="row"><span class="sub">No expenses yet.</span></div>'; return; }
+  el.innerHTML = items.map((e) => `
+    <div class="row">
+      <div class="grow">
+        <div>${esc(e.description)}${e.isBig ? '<span class="big">Big</span>' : ''}${e.recurring ? '<span class="big">Bill</span>' : ''}</div>
+        <div class="sub">${esc(e.date)} · ${esc(e.category)}</div>
+      </div>
+      <span class="who ${esc(e.paidBy)}">${esc(e.paidBy)}</span>
+      <span class="mono" style="min-width:76px;text-align:right">${fmt(e.amountCents)}</span>
+      <button class="del" data-id="${esc(e.id)}" aria-label="Delete ${esc(e.description)}">&times;</button>
+    </div>`).join('');
+  el.querySelectorAll('.del').forEach((b) => {
+    b.onclick = async () => {
+      if (confirm('Delete this expense?')) await deleteDoc(doc(db, 'expenses', b.dataset.id));
+    };
+  });
+}
+function renderSettle(items) {
+  // net > 0 means P owes J
+  let net = 0;
+  items.forEach((e) => {
+    const owed = owedToPayer(e);
+    net += e.paidBy === 'J' ? owed : -owed;
+  });
+  if (net === 0) { $('settleText').textContent = 'All square'; $('settleAmt').textContent = fmt(0); return; }
+  $('settleText').textContent = net > 0 ? 'P owes J' : 'J owes P';
+  $('settleAmt').textContent = fmt(Math.abs(net));
+}
+
+// ---------- save ----------
+$('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('formErr').textContent = '';
+  const amountCents = parseMoney($('amount').value);
+  const description = $('desc').value.trim();
+  if (!(amountCents > 0)) { $('formErr').textContent = 'Enter an amount.'; return; }
+  if (!description) { $('formErr').textContent = 'Add a description.'; return; }
+  let otherShareCents = 0;
+  if (state.split === 'custom') {
+    otherShareCents = parseMoney($('otherShare').value);
+    if (isNaN(otherShareCents) || otherShareCents < 0 || otherShareCents > amountCents) {
+      $('formErr').textContent = "Other person's share must be between $0 and the amount."; return;
+    }
+  }
+  $('saveBtn').disabled = true;
+  try {
+    await addDoc(collection(db, 'expenses'), {
+      amountCents, description,
+      category: state.cat,
+      paidBy: state.payer,
+      split: state.split,
+      otherShareCents,
+      date: $('date').value || todayISO(),
+      recurring: $('recurring').checked,
+      isBig: amountCents >= BIG_CENTS,
+      source: 'manual',
+      createdBy: auth.currentUser.uid,
+      createdAt: serverTimestamp()
+    });
+    $('amount').value = ''; $('desc').value = ''; $('otherShare').value = '';
+    $('recurring').checked = false; $('date').value = todayISO();
+    updateSplitHint();
+  } catch (e) {
+    console.error(e);
+    $('formErr').textContent = 'Could not save. Check your connection and try again.';
+  } finally {
+    $('saveBtn').disabled = false;
+  }
+});
+</script>
+</body>
+</html>
